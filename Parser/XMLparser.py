@@ -11,8 +11,21 @@ import time
 from tqdm import tqdm
 import math
 
+class SharedCounter:
+    def __init__(self):
+        self.val = mp.Value('i', 0)
+        self.lock = mp.Lock()
+
+    def increment(self, n=1):
+        with self.lock:
+            self.val.value += n
+
+    def value(self):
+        with self.lock:
+            return self.val.value
+
 class WikiXMLHandler(xml.sax.ContentHandler):
-    def __init__(self, chunk_queue: mp.Queue, pbar: tqdm = None):
+    def __init__(self, chunk_queue: mp.Queue, counter: SharedCounter):
         super().__init__()
         self.current_tag = ""
         self.title = ""
@@ -24,8 +37,7 @@ class WikiXMLHandler(xml.sax.ContentHandler):
         self.chunk_queue = chunk_queue
         self.current_chunk = []
         self.chunk_size = 1000  # Collect this many pages before sending to queue
-        self.page_count = 0
-        self.pbar = pbar
+        self.counter = counter
 
     def startElement(self, tag, attributes):
         self.current_tag = tag
@@ -49,14 +61,11 @@ class WikiXMLHandler(xml.sax.ContentHandler):
                 "text": self.text.strip()
             }
             self.current_chunk.append(page_data)
-            self.page_count += 1
+            self.counter.increment()
 
             if len(self.current_chunk) >= self.chunk_size:
                 self.chunk_queue.put(self.current_chunk)
                 self.current_chunk = []
-
-            if self.pbar:
-                self.pbar.update(1)
 
         elif tag == "revision":
             self.in_revision = False
@@ -72,14 +81,26 @@ class WikiXMLHandler(xml.sax.ContentHandler):
         if self.current_chunk:  # Send any remaining pages
             self.chunk_queue.put(self.current_chunk)
 
-def get_total_pages(file_path: str) -> int:
-    """Count total number of pages in the XML file."""
-    total = 0
+def estimate_total_pages(file_path: str, sample_size: int = 1024*1024) -> int:
+    """Estimate total pages based on file size and sampling."""
+    file_size = os.path.getsize(file_path)
+
+    # Read a sample from the middle of the file
     with open(file_path, 'rb') as f:
-        for line in f:
-            if b'<page>' in line:
-                total += 1
-    return total
+        # Skip the header portion
+        f.seek(min(file_size // 4, sample_size))
+        sample = f.read(sample_size)
+
+    # Count pages in sample
+    page_tags = sample.count(b'<page>')
+    if page_tags == 0:
+        return 1000000  # Fallback estimate
+
+    # Estimate total based on ratio
+    bytes_per_page = sample_size / page_tags
+    estimated_pages = int(file_size / bytes_per_page)
+
+    return estimated_pages
 
 def chunk_file(file_path: str, chunk_size: int = 1024*1024*100) -> Generator[bytes, None, None]:
     """Generate chunks of the file using memory mapping."""
@@ -88,22 +109,19 @@ def chunk_file(file_path: str, chunk_size: int = 1024*1024*100) -> Generator[byt
             file_size = len(mm)
             for i in range(0, file_size, chunk_size):
                 chunk = mm[i:min(i + chunk_size, file_size)]
-                # Ensure we don't split in the middle of a page
                 if i + chunk_size < file_size:
                     last_page_end = chunk.rfind(b'</page>')
                     if last_page_end != -1:
                         yield chunk[:last_page_end] + b'</page>'
-                        mm.seek(i + last_page_end + 7)  # Skip past </page>
+                        mm.seek(i + last_page_end + 7)
                 else:
                     yield chunk
 
 class ChunkWriter:
-    def __init__(self, output_dir: str, process_id: int, pbar: tqdm = None):
+    def __init__(self, output_dir: str, process_id: int):
         self.output_file = Path(output_dir) / f"output_{process_id}.xml"
         self.buffer = []
-        self.buffer_size = 5000  # Pages per buffer
-        self.file_handle = None
-        self.pbar = pbar
+        self.buffer_size = 5000
         self.initialize_file()
 
     def initialize_file(self):
@@ -124,39 +142,28 @@ class ChunkWriter:
         with open(self.output_file, 'a', encoding='utf-8') as f:
             f.write(''.join(output))
 
-        if self.pbar:
-            self.pbar.update(len(pages))
-
     def finalize(self):
         with open(self.output_file, 'a', encoding='utf-8') as f:
             f.write('</wikis>')
 
-def process_chunks(chunk_queue: mp.Queue, output_dir: str, process_id: int, total_pages: int):
+def process_chunks(chunk_queue: mp.Queue, output_dir: str, process_id: int):
     """Process chunks of pages from the queue."""
-    with tqdm(
-            total=total_pages,
-            desc=f"Writer-{process_id}",
-            position=process_id + 1,
-            leave=True
-    ) as pbar:
-        writer = ChunkWriter(output_dir, process_id, pbar)
+    writer = ChunkWriter(output_dir, process_id)
 
-        while True:
-            try:
-                chunk = chunk_queue.get(timeout=60)
-                writer.write_chunk(chunk)
-            except queue.Empty:
-                break
+    while True:
+        try:
+            chunk = chunk_queue.get(timeout=60)
+            writer.write_chunk(chunk)
+        except queue.Empty:
+            break
 
-        writer.finalize()
+    writer.finalize()
 
-def parse_wiki_chunk(chunk: bytes, chunk_queue: mp.Queue, pbar: tqdm = None):
+def parse_wiki_chunk(chunk: bytes, chunk_queue: mp.Queue, counter: SharedCounter):
     """Parse a chunk of XML data."""
-    handler = WikiXMLHandler(chunk_queue, pbar)
+    handler = WikiXMLHandler(chunk_queue, counter)
     parser = xml.sax.make_parser()
     parser.setContentHandler(handler)
-
-    # Wrap the chunk in a file-like object
     chunk_file = io.BytesIO(chunk)
     parser.parse(chunk_file)
 
@@ -167,10 +174,9 @@ def process_wiki_dump(input_file: str, output_dir: str, num_processes: int = Non
 
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
-    # Count total pages first
-    print("Counting total pages...")
-    total_pages = get_total_pages(input_file)
-    pages_per_process = math.ceil(total_pages / num_processes)
+    # Estimate total pages
+    estimated_pages = estimate_total_pages(input_file)
+    shared_counter = SharedCounter()
 
     # Create queues
     chunk_queue = mp.Queue(maxsize=num_processes * 2)
@@ -180,30 +186,42 @@ def process_wiki_dump(input_file: str, output_dir: str, num_processes: int = Non
     for i in range(num_processes):
         p = mp.Process(
             target=process_chunks,
-            args=(chunk_queue, output_dir, i, pages_per_process)
+            args=(chunk_queue, output_dir, i)
         )
         p.start()
         writers.append(p)
 
-    # Create main progress bar
-    with tqdm(total=total_pages, desc="Total Progress", position=0) as main_pbar:
+    # Create progress bar that updates based on actual count
+    with tqdm(total=estimated_pages, desc="Processing pages") as pbar:
+        last_count = 0
+
         # Create parser pool
         with mp.Pool(processes=num_processes) as pool:
-            # Process file in chunks
-            chunk_size = 1024 * 1024 * 100  # 100MB chunks
+            # Start async parsing
+            chunk_size = 1024 * 1024 * 100
             chunks = chunk_file(input_file, chunk_size)
+            async_results = [
+                pool.apply_async(parse_wiki_chunk, (chunk, chunk_queue, shared_counter))
+                for chunk in chunks
+            ]
 
-            # Process chunks in parallel
-            pool.starmap(
-                parse_wiki_chunk,
-                [(chunk, chunk_queue, main_pbar) for chunk in chunks]
-            )
+            # Update progress bar while processing
+            while any(not r.ready() for r in async_results):
+                current_count = shared_counter.value()
+                pbar.update(current_count - last_count)
+                last_count = current_count
+                time.sleep(0.1)
+
+            # Final update
+            current_count = shared_counter.value()
+            pbar.update(current_count - last_count)
+            pbar.total = current_count  # Update total to actual count
 
     # Wait for all processes to complete
     for p in writers:
         p.join()
 
-    print("\nProcessing complete!")
+    print(f"\nProcessing complete! Total pages processed: {shared_counter.value()}")
 
 if __name__ == "__main__":
     import argparse
