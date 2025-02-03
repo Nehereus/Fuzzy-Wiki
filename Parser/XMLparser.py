@@ -1,3 +1,4 @@
+import logging
 import xml.sax
 import multiprocessing as mp
 from pathlib import Path
@@ -216,7 +217,7 @@ def process_wiki_dump(input_file: str, output_dir: str, num_processes: int = Non
         print(f"\nProcessing complete! Total pages processed: {shared_counter.value()}")
 
 def get_chunk_boundaries(file_path: str, num_processes: int) -> List[int]:
-    """Calculate chunk boundaries for parallel processing."""
+    """Calculate chunk boundaries and log them."""
     file_size = os.path.getsize(file_path)
     chunk_size = math.ceil(file_size / num_processes)
     boundaries = []
@@ -228,22 +229,24 @@ def get_chunk_boundaries(file_path: str, num_processes: int) -> List[int]:
 
             # Adjust start to the beginning of a <page> tag
             f.seek(start)
-            if i > 0:  # Only adjust start for chunks after the first
-                while f.read(6) != b'<page>':  # Check for the open page tag
+            if i > 0:
+                while f.read(6) != b'<page>':
                     start -= 1
-                    f.seek(max(0, start)) # prevent seeking before file start
-                    if start <=0:
+                    f.seek(max(0, start))
+                    if start <= 0:
                         break
 
             # Adjust end to the end of a </page> tag
             f.seek(end)
-            if end < file_size: # Only adjust if not the last chunk
+            if end < file_size:
                 while f.read(7) != b'</page>':
                     end += 1
                     if end >= file_size:
                         break
 
             boundaries.append((start, end))
+            logging.info(f"Process {i}: Chunk boundary: Start={start}, End={end}")  # Log the boundaries
+
     return boundaries
 
 if __name__ == "__main__":
