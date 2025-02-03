@@ -159,11 +159,16 @@ def process_chunks(chunk_queue: mp.Queue, output_dir: str, process_id: int):
 
     writer.finalize()
 
-def parse_wiki_chunk(chunk: bytes, chunk_queue: mp.Queue, counter: SharedCounter):
-    """Parse a chunk of XML data."""
+def parse_wiki_chunk(file_path: str, start: int, end: int, chunk_queue: mp.Queue, counter: SharedCounter):
+    """Parse a specific chunk of the XML file."""
     handler = WikiXMLHandler(chunk_queue, counter)
     parser = xml.sax.make_parser()
     parser.setContentHandler(handler)
+
+    with open(file_path, 'rb') as f:
+        f.seek(start)
+        chunk = f.read(end - start)  # Read the defined chunk
+
     chunk_file = io.BytesIO(chunk)
     parser.parse(chunk_file)
 
@@ -171,57 +176,75 @@ def process_wiki_dump(input_file: str, output_dir: str, num_processes: int = Non
     """Process Wikipedia XML dump using optimized parsing and processing."""
     if num_processes is None:
         num_processes = mp.cpu_count()
-
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
-    # Estimate total pages
+    # Estimate total pages (still used for progress bar, but actual count is more important)
     estimated_pages = estimate_total_pages(input_file)
     shared_counter = SharedCounter()
 
-    # Create queues
     chunk_queue = mp.Queue(maxsize=num_processes * 2)
 
-    # Start writer processes
     writers = []
     for i in range(num_processes):
-        p = mp.Process(
-            target=process_chunks,
-            args=(chunk_queue, output_dir, i)
-        )
+        p = mp.Process(target=process_chunks, args=(chunk_queue, output_dir, i))
         p.start()
         writers.append(p)
 
-    # Create progress bar that updates based on actual count
     with tqdm(total=estimated_pages, desc="Processing pages") as pbar:
         last_count = 0
 
-        # Create parser pool
         with mp.Pool(processes=num_processes) as pool:
-            # Start async parsing
-            chunk_size = 1024 * 1024 * 100
-            chunks = chunk_file(input_file, chunk_size)
+            boundaries = get_chunk_boundaries(input_file, num_processes)
             async_results = [
-                pool.apply_async(parse_wiki_chunk, (chunk, chunk_queue, shared_counter))
-                for chunk in chunks
+                pool.apply_async(parse_wiki_chunk, (input_file, start, end, chunk_queue, shared_counter))
+                for start, end in boundaries
             ]
 
-            # Update progress bar while processing
             while any(not r.ready() for r in async_results):
                 current_count = shared_counter.value()
                 pbar.update(current_count - last_count)
                 last_count = current_count
                 time.sleep(0.1)
 
-            # Final update
             current_count = shared_counter.value()
             pbar.update(current_count - last_count)
-            pbar.total = current_count  # Update total to actual count
+            pbar.total = current_count
 
-    # Wait for all processes to complete
-    for p in writers:
-        p.join()
+        for p in writers:
+            p.join()
 
-    print(f"\nProcessing complete! Total pages processed: {shared_counter.value()}")
+        print(f"\nProcessing complete! Total pages processed: {shared_counter.value()}")
+
+def get_chunk_boundaries(file_path: str, num_processes: int) -> List[int]:
+    """Calculate chunk boundaries for parallel processing."""
+    file_size = os.path.getsize(file_path)
+    chunk_size = math.ceil(file_size / num_processes)
+    boundaries = []
+
+    with open(file_path, 'rb') as f:
+        for i in range(num_processes):
+            start = i * chunk_size
+            end = min((i + 1) * chunk_size, file_size)
+
+            # Adjust start to the beginning of a <page> tag
+            f.seek(start)
+            if i > 0:  # Only adjust start for chunks after the first
+                while f.read(6) != b'<page>':  # Check for the open page tag
+                    start -= 1
+                    f.seek(max(0, start)) # prevent seeking before file start
+                    if start <=0:
+                        break
+
+            # Adjust end to the end of a </page> tag
+            f.seek(end)
+            if end < file_size: # Only adjust if not the last chunk
+                while f.read(7) != b'</page>':
+                    end += 1
+                    if end >= file_size:
+                        break
+
+            boundaries.append((start, end))
+    return boundaries
 
 if __name__ == "__main__":
     import argparse
