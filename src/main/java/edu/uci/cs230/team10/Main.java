@@ -33,7 +33,7 @@ public class Main {
         addDoc(w, "The Art of Computer Science", "9900333X");
         w.close();
 
-        String querystr = args.length > 0 ? args[0] : "giga";
+        String querystr = args.length > 0 ? args[0] : "";
         Query q = new QueryParser("title", analyzer).parse(querystr);
 
         int hitsPerPage = 10;
