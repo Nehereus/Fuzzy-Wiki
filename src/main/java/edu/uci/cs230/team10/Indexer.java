@@ -21,6 +21,10 @@ public class Indexer extends Reducer<Text, Text, NullWritable, NullWritable> {
     private static final String INDEX_DIRECTORY = "/home/hadoop/index";
     private IndexWriter writer;
 
+    protected void setWriter(IndexWriter writer) {
+        this.writer = writer;
+    }
+
     @Override
     protected void setup(Context context) throws IOException {
         Directory index = FSDirectory.open(Path.of(INDEX_DIRECTORY));
@@ -38,6 +42,7 @@ public class Indexer extends Reducer<Text, Text, NullWritable, NullWritable> {
             try {
                 writer.addDocument(doc);
             } catch (IOException e) {
+                context.getCounter("IndexerErrors", "addingDocumentError").increment(1);
                 e.printStackTrace();
             }
         }
