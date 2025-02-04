@@ -15,9 +15,9 @@
                 <version>3.4.2</version>
                 <configuration>
                     <archive>
-                        <manifesta>
+                        <manifest>
                             <mainClass>edu.uci.cs230.team10.Main</mainClass>
-                        </manifesta>
+                        </manifest>
                     </archive>
                 </configuration>
             </plugin>
