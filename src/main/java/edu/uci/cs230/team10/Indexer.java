@@ -18,7 +18,7 @@ import java.nio.file.Path;
 
 public class Indexer extends Reducer<Text, Text, NullWritable, NullWritable> {
 
-    private static final String INDEX_DIRECTORY = "./index";
+    private static final String INDEX_DIRECTORY = "/home/hadoop/index";
     private IndexWriter writer;
 
     @Override

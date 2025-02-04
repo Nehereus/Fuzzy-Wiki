@@ -12,25 +12,26 @@ import org.apache.lucene.analysis.en.PorterStemFilter;
 import org.apache.lucene.analysis.standard.StandardTokenizer;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.json.JSONObject;
-
+import java.util.logging.Logger;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Mapper;
 
 public class Parser extends Mapper<Object, Text, Text, Text> {
     private static final CharArraySet STOP_WORDS = new CharArraySet(Arrays.asList("is", "an", "in", "the", "and", "a", "of"), true);
-
+    private Logger log = Logger.getLogger(Parser.class.getName());
     public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
         String json = value.toString();
         try {
             JSONObject jsonObject = new JSONObject(json);
             if (jsonObject.has("text") && jsonObject.has("title")) {
-                String text = tokenize(jsonObject.getString("text"));
+                String text = tokenize(jsonObject.get("text").toString());
                 context.write(new Text(jsonObject.getString("title")), new Text(text));
             } else {
                 context.getCounter("ParserErrors", "MissingFields").increment(1);
             }
         } catch (Exception e) {
             context.getCounter("ParserErrors", "JSONException").increment(1);
+            log.warning("Error parsing JSON: " + json);
             e.printStackTrace();
         }
     }
