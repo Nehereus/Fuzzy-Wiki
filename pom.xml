@@ -7,6 +7,22 @@
     <groupId>edu.uci.cs230.team10</groupId>
     <artifactId>FuzzyWiki</artifactId>
     <version>1.0-SNAPSHOT</version>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.4.2</version>
+                <configuration>
+                    <archive>
+                        <manifesta>
+                            <mainClass>edu.uci.cs230.team10.Main</mainClass>
+                        </manifesta>
+                    </archive>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
