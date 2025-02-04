@@ -18,7 +18,7 @@ public class Main {
         Configuration conf = new Configuration();
         JobConf jobConf = new JobConf(conf, Main.class);
         FileInputFormat.addInputPath(jobConf, new Path(args[0]));
-        FileOutputFormat.setOutputPath(jobConf, new Path("./output"));
+        FileOutputFormat.setOutputPath(jobConf, new Path(args[1]));
         Job job = Job.getInstance(jobConf, "wiki index");
         job.setJarByClass(Main.class);
         job.setMapperClass(Parser.class);
