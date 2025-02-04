@@ -23,8 +23,8 @@ public class Main {
         job.setJarByClass(Main.class);
         job.setMapperClass(Parser.class);
         job.setCombinerClass(Indexer.class);
-        //job.setReducerClass(Indexer.class); // should never actually run
-        job.setNumReduceTasks(0);
+        job.setReducerClass(Indexer.class);
+        //job.setNumReduceTasks(0);
         job.setMapOutputKeyClass(Text.class);
         job.setMapOutputValueClass(Text.class);
         job.setOutputKeyClass(NullWritable.class);
