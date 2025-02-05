@@ -52,14 +52,13 @@ public class Indexer extends Reducer<Text, Text, NullWritable, NullWritable> {
         }
         // Open the chosen directory for indexing
         index = FSDirectory.open(chosenDir);
+        writer = new IndexWriter(index, new IndexWriterConfig(analyzer));
     }
 
     @Override
     protected void setup(Context context) throws IOException {
-        chooseIndexer();
         analyzer = new StandardAnalyzer();
-        IndexWriterConfig config = new IndexWriterConfig(analyzer);
-        writer = new IndexWriter(index, config);
+        chooseIndexer();
     }
 
     @Override
