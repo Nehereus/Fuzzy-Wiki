@@ -17,20 +17,12 @@ import java.io.IOException;
 import java.nio.file.Path;
 
 public class Indexer extends Reducer<Text, Text, NullWritable, NullWritable> {
-    private static final String INDEX_DIRECTORY = "/home/hadoop/index";
-    private static Directory index;
-    private static StandardAnalyzer analyzer = new StandardAnalyzer();
-    private static IndexWriterConfig  config = new IndexWriterConfig(analyzer);
-    private static IndexWriter writer;
 
-    static {
-        try {
-            index = FSDirectory.open(Path.of(INDEX_DIRECTORY));
-            writer = new IndexWriter(index, config);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
+    private static final String INDEX_DIRECTORY = "/home/hadoop/index";
+    private static IndexWriter writer;
+    private static StandardAnalyzer analyzer;
+    private static IndexWriterConfig config;
+    private static Directory index;
 
     protected void setWriter(IndexWriter writer) {
         this.writer = writer;
@@ -38,10 +30,12 @@ public class Indexer extends Reducer<Text, Text, NullWritable, NullWritable> {
 
     @Override
     protected void setup(Context context) throws IOException {
-        index = FSDirectory.open(Path.of(INDEX_DIRECTORY));
-        analyzer = new StandardAnalyzer();
-        IndexWriterConfig config = new IndexWriterConfig(analyzer);
-        writer = new IndexWriter(index, config);
+        if(index==null){
+            index = FSDirectory.open(Path.of(INDEX_DIRECTORY));
+            analyzer = new StandardAnalyzer();
+            config = new IndexWriterConfig(analyzer);
+            writer = new IndexWriter(index, config);
+        }
     }
 
     @Override
@@ -61,8 +55,8 @@ public class Indexer extends Reducer<Text, Text, NullWritable, NullWritable> {
 
     @Override
     protected void cleanup(Context context) throws IOException {
-    //    analyzer.close();
-    //    writer.close();
-    //    index.close();
+        writer.close();
+        index.close();
+        writer.close();
     }
 }
