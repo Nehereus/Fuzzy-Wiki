@@ -14,15 +14,15 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 
 public class Indexer extends Reducer<Text, Text, NullWritable, NullWritable> {
 
-    private static final String INDEX_DIRECTORY = "/home/hadoop/index";
-    private static IndexWriter writer;
-    private static StandardAnalyzer analyzer;
-    private static IndexWriterConfig config;
-    private static Directory index;
+    private static final String ROOT_DIRECTORY = "/home/hadoop/index";
+    private  IndexWriter writer;
+    private  StandardAnalyzer analyzer;
+    private  Directory index;
 
     protected void setWriter(IndexWriter writer) {
         this.writer = writer;
@@ -30,12 +30,12 @@ public class Indexer extends Reducer<Text, Text, NullWritable, NullWritable> {
 
     @Override
     protected void setup(Context context) throws IOException {
-        if(index==null){
-            index = FSDirectory.open(Path.of(INDEX_DIRECTORY));
-            analyzer = new StandardAnalyzer();
-            config = new IndexWriterConfig(analyzer);
-            writer = new IndexWriter(index, config);
-        }
+        Path dir =Path.of(ROOT_DIRECTORY + "/index-" + System.currentTimeMillis());
+        Files.createDirectories(dir);
+        index = FSDirectory.open(dir);
+        analyzer = new StandardAnalyzer();
+        IndexWriterConfig config = new IndexWriterConfig(analyzer);
+        writer = new IndexWriter(index, config);
     }
 
     @Override
@@ -55,8 +55,8 @@ public class Indexer extends Reducer<Text, Text, NullWritable, NullWritable> {
 
     @Override
     protected void cleanup(Context context) throws IOException {
+        analyzer.close();
         writer.close();
         index.close();
-        writer.close();
     }
 }
