@@ -14,6 +14,7 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 
 import java.io.IOException;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -28,18 +29,39 @@ public class Indexer extends Reducer<Text, Text, NullWritable, NullWritable> {
         this.writer = writer;
     }
 
-    @Override
     protected void setup(Context context) throws IOException {
-        Path dir =Path.of(ROOT_DIRECTORY + "/index-" + System.currentTimeMillis());
-        Files.createDirectories(dir);
-        index = FSDirectory.open(dir);
+        Path rootDir = Path.of(ROOT_DIRECTORY);
+        Files.createDirectories(rootDir); // Ensure the root directory exists
+        Path chosenDir = null;
+        // Check existing subdirectories for availability
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(rootDir, "index-*")) {
+            for (Path subDir : stream) {
+                Path lockFile = subDir.resolve("write.lock");
+
+                if (Files.isDirectory(subDir) && !Files.exists(lockFile)) {
+                    chosenDir = subDir;
+                    System.out.println("Reusing existing directory: " + subDir);
+                    break;
+                } else {
+                    System.out.println("Directory " + subDir + " is locked or invalid.");
+                }
+            }
+        }
+        // Create a new directory if none were usable
+        if (chosenDir == null) {
+            chosenDir = Path.of(rootDir.toString(), "index-" + System.currentTimeMillis());
+            Files.createDirectories(chosenDir);
+            System.out.println("Created new directory: " + chosenDir);
+        }
+        // Open the chosen directory for indexing
+        index = FSDirectory.open(chosenDir);
         analyzer = new StandardAnalyzer();
         IndexWriterConfig config = new IndexWriterConfig(analyzer);
         writer = new IndexWriter(index, config);
     }
 
     @Override
-    public void reduce(Text key, Iterable<Text> values, Context context) {
+    public void reduce(Text key, Iterable<Text> values, Context context) throws IOException {
         for (Text value : values) {
             Document doc = new Document();
             doc.add(new TextField("title", key.toString(), Field.Store.YES));
@@ -49,6 +71,8 @@ public class Indexer extends Reducer<Text, Text, NullWritable, NullWritable> {
             } catch (IOException e) {
                 context.getCounter("IndexerErrors", "addingDocumentError").increment(1);
                 e.printStackTrace();
+            }finally {
+                cleanup(context);
             }
         }
     }
