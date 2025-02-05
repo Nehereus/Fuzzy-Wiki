@@ -17,9 +17,20 @@ import java.io.IOException;
 import java.nio.file.Path;
 
 public class Indexer extends Reducer<Text, Text, NullWritable, NullWritable> {
-
     private static final String INDEX_DIRECTORY = "/home/hadoop/index";
-    private IndexWriter writer;
+    private static Directory index;
+    private static StandardAnalyzer analyzer = new StandardAnalyzer();;
+    private static IndexWriterConfig  config = new IndexWriterConfig(analyzer);
+    private static IndexWriter writer;
+
+    static {
+        try {
+            index = FSDirectory.open(Path.of(INDEX_DIRECTORY));
+            writer = new IndexWriter(index, config);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     protected void setWriter(IndexWriter writer) {
         this.writer = writer;
@@ -27,8 +38,8 @@ public class Indexer extends Reducer<Text, Text, NullWritable, NullWritable> {
 
     @Override
     protected void setup(Context context) throws IOException {
-        Directory index = FSDirectory.open(Path.of(INDEX_DIRECTORY));
-        StandardAnalyzer analyzer = new StandardAnalyzer();
+        index = FSDirectory.open(Path.of(INDEX_DIRECTORY));
+        analyzer = new StandardAnalyzer();
         IndexWriterConfig config = new IndexWriterConfig(analyzer);
         writer = new IndexWriter(index, config);
     }
@@ -50,6 +61,8 @@ public class Indexer extends Reducer<Text, Text, NullWritable, NullWritable> {
 
     @Override
     protected void cleanup(Context context) throws IOException {
-        writer.close();
+    //    analyzer.close();
+    //    writer.close();
+    //    index.close();
     }
 }
