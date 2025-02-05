@@ -19,7 +19,7 @@ import java.nio.file.Path;
 public class Indexer extends Reducer<Text, Text, NullWritable, NullWritable> {
     private static final String INDEX_DIRECTORY = "/home/hadoop/index";
     private static Directory index;
-    private static StandardAnalyzer analyzer = new StandardAnalyzer();;
+    private static StandardAnalyzer analyzer = new StandardAnalyzer();
     private static IndexWriterConfig  config = new IndexWriterConfig(analyzer);
     private static IndexWriter writer;
 
