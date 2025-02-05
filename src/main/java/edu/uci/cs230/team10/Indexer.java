@@ -14,6 +14,7 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.LockObtainFailedException;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -31,25 +32,35 @@ public class Indexer extends Reducer<Text, Text, NullWritable, NullWritable> {
     protected void setWriter(IndexWriter writer) {
         this.writer = writer;
     }
-    private void  chooseIndexer() throws IOException {
+    private void chooseIndexer() throws IOException {
         Path queueFilePath = Path.of(ROOT_DIRECTORY, "index_queue.txt");
-        if (!Files.exists(queueFilePath))
-            Files.createFile(queueFilePath);
+        if (!Files.exists(queueFilePath)) {
+            Files.createFile(queueFilePath); // Create the queue file if it doesn't exist
+        }
 
         String selectedDir = null;
 
-        List<String> lines = Files.readAllLines(queueFilePath);
-        if (!lines.isEmpty()) {
-            selectedDir = lines.remove(0); // Remove the first directory from the queue
-            Files.write(queueFilePath, lines);
+        // Check file size first to avoid unnecessary reads
+        if (Files.size(queueFilePath) > 0) {
+            try (BufferedReader reader = Files.newBufferedReader(queueFilePath)) {
+                selectedDir = reader.readLine(); // Read only the first line
+            }
+
+            if (selectedDir != null) {
+                // Remove the first line and rewrite the rest of the file
+                List<String> remainingLines = Files.readAllLines(queueFilePath);
+                remainingLines.remove(0);
+                Files.write(queueFilePath, remainingLines);
+            }
         }
 
         if (selectedDir == null) {
             // Create a new directory if the queue is empty
-            selectedDir = ROOT_DIRECTORY + "/index-" + System.currentTimeMillis()+ "-" + random.nextInt();
+            selectedDir = ROOT_DIRECTORY + "/index-" + System.currentTimeMillis() + "-" + random.nextInt();
             Files.createDirectories(Path.of(selectedDir));
         }
 
+        // Initialize index writer
         index = FSDirectory.open(Path.of(selectedDir));
         analyzer = new StandardAnalyzer();
         IndexWriterConfig config = new IndexWriterConfig(analyzer);
