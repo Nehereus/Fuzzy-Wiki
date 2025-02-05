@@ -18,6 +18,9 @@ import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Random;
 
 
@@ -37,7 +40,10 @@ public class Indexer extends Reducer<Text, Text, NullWritable, NullWritable> {
         Path chosenDir = null;
         // Check existing subdirectories for availability
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(rootDir, "index-*")) {
-            for (Path subDir : stream) {
+            List<Path> list = new ArrayList<>();
+            stream.iterator().forEachRemaining(list::add);
+            Collections.shuffle(list);
+            for (Path subDir : list) {
                 Path lockFile = subDir.resolve("write.lock");
                 if (Files.isDirectory(subDir) && !Files.exists(lockFile)) {
                     chosenDir = subDir;
@@ -47,7 +53,7 @@ public class Indexer extends Reducer<Text, Text, NullWritable, NullWritable> {
         }
         // Create a new directory if none were usable
         if (chosenDir == null) {
-            chosenDir = Path.of(rootDir.toString(), "index-" + System.currentTimeMillis()+ "-" + random.nextInt());
+            chosenDir = Path.of(rootDir.toString(), "index-" + System.currentTimeMillis()+ "-" + random.nextInt(10));
             Files.createDirectories(chosenDir);
         }
         // Open the chosen directory for indexing
