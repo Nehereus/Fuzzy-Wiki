@@ -12,14 +12,17 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
+import org.apache.lucene.store.LockObtainFailedException;
 
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Random;
+
 
 public class Indexer extends Reducer<Text, Text, NullWritable, NullWritable> {
-
+    private static final Random random = new Random();
     private static final String ROOT_DIRECTORY = "/home/hadoop/index";
     private  IndexWriter writer;
     private  StandardAnalyzer analyzer;
@@ -28,8 +31,7 @@ public class Indexer extends Reducer<Text, Text, NullWritable, NullWritable> {
     protected void setWriter(IndexWriter writer) {
         this.writer = writer;
     }
-
-    protected void setup(Context context) throws IOException {
+    private void chooseIndexer() throws IOException {
         Path rootDir = Path.of(ROOT_DIRECTORY);
         Files.createDirectories(rootDir); // Ensure the root directory exists
         Path chosenDir = null;
@@ -37,24 +39,24 @@ public class Indexer extends Reducer<Text, Text, NullWritable, NullWritable> {
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(rootDir, "index-*")) {
             for (Path subDir : stream) {
                 Path lockFile = subDir.resolve("write.lock");
-
                 if (Files.isDirectory(subDir) && !Files.exists(lockFile)) {
                     chosenDir = subDir;
-                    System.out.println("Reusing existing directory: " + subDir);
                     break;
-                } else {
-                    System.out.println("Directory " + subDir + " is locked or invalid.");
                 }
             }
         }
         // Create a new directory if none were usable
         if (chosenDir == null) {
-            chosenDir = Path.of(rootDir.toString(), "index-" + System.currentTimeMillis());
+            chosenDir = Path.of(rootDir.toString(), "index-" + System.currentTimeMillis()+ "-" + random.nextInt());
             Files.createDirectories(chosenDir);
-            System.out.println("Created new directory: " + chosenDir);
         }
         // Open the chosen directory for indexing
         index = FSDirectory.open(chosenDir);
+    }
+
+    @Override
+    protected void setup(Context context) throws IOException {
+        chooseIndexer();
         analyzer = new StandardAnalyzer();
         IndexWriterConfig config = new IndexWriterConfig(analyzer);
         writer = new IndexWriter(index, config);
@@ -68,11 +70,12 @@ public class Indexer extends Reducer<Text, Text, NullWritable, NullWritable> {
             doc.add(new StringField("text", value.toString(), Field.Store.YES));
             try {
                 writer.addDocument(doc);
+            } catch (LockObtainFailedException e){
+               chooseIndexer();
+               reduce(key, values, context);
             } catch (IOException e) {
                 context.getCounter("IndexerErrors", "addingDocumentError").increment(1);
                 e.printStackTrace();
-            }finally {
-                cleanup(context);
             }
         }
     }
