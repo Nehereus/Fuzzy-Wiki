@@ -77,23 +77,26 @@ public class Indexer extends Reducer<Text, Text, NullWritable, NullWritable> {
     public void reduce(Text key, Iterable<Text> values, Context context) throws IOException {
         Document doc = new Document();
         doc.add(new TextField("title", key.toString(), Field.Store.YES));
+
         for (Text value : values) {
             doc.add(new StringField("text", value.toString(), Field.Store.YES));
-            try {
-                writer.addDocument(doc);
-            } catch (LockObtainFailedException e){
-               chooseIndexer();
-               reduce(key, values, context);
-            } catch (IOException e) {
-                context.getCounter("IndexerErrors", "addingDocumentError").increment(1);
-                e.printStackTrace();
-            }
         }
+
+        if(writer.isOpen()){
+            writer.addDocument(doc);
+        }else{
+            context.getCounter("IndexerErrors", "LockObtainFailedException").increment(1);
+            chooseIndexer();
+            reduce(key, values, context);
+        }
+
+        writer.commit();
     }
 
     @Override
     protected void cleanup(Context context) throws IOException {
         analyzer.close();
+        writer.commit();
         writer.close();
         index.close();
         Path queueFilePath = Path.of(ROOT_DIRECTORY, "index_queue.txt");
