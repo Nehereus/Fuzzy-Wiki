@@ -36,6 +36,9 @@
                             <filters>
                                 <filter>
                                     <artifact>*:*</artifact>
+                                    <includes>
+                                        <include>META-INF/versions/**</include>
+                                    </includes>
                                     <excludes>
                                         <exclude>META-INF/*.SF</exclude>
                                         <exclude>META-INF/*.DSA</exclude>
