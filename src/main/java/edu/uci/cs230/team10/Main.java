@@ -24,7 +24,7 @@ public class Main {
         job.setMapperClass(Parser.class);
         job.setCombinerClass(Indexer.class);
         job.setReducerClass(Indexer.class);
-        //job.setNumReduceTasks(0);
+        job.setNumReduceTasks(4);
         job.setMapOutputKeyClass(Text.class);
         job.setMapOutputValueClass(Text.class);
         job.setOutputKeyClass(NullWritable.class);
