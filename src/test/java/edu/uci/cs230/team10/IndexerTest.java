@@ -49,7 +49,7 @@ class IndexerTest {
         writer = new IndexWriter(index, config);
         parser = new Parser();
         indexer = new Indexer();
-        indexer.setWriter(writer);
+        //indexer.setWriter(writer);
     }
 
     @Test
