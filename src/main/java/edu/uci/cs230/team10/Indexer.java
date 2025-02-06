@@ -12,7 +12,6 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
-import org.apache.lucene.store.LockObtainFailedException;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -89,7 +88,6 @@ public class Indexer extends Reducer<Text, Text, NullWritable, NullWritable> {
             chooseIndexer();
             reduce(key, values, context);
         }
-
         writer.commit();
     }
 
