@@ -18,8 +18,11 @@ public class IndexMerger {
 
     public static void main(String[] args) throws IOException {
         Directory mainIndex = FSDirectory.open(mainIndexPath);
-        try (IndexWriter writer = new IndexWriter(mainIndex, new IndexWriterConfig());
-             DirectoryStream<Path> stream = Files.newDirectoryStream(Path.of(ROOT_DIRECTORY), "index-*")) {
+        IndexWriter writer = null;
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(Path.of(ROOT_DIRECTORY), "index-*")) {
+
+            writer = new IndexWriter(mainIndex, new IndexWriterConfig());
+
             for (Path subDir : stream) {
                 final Path lockFile= Path.of(subDir.toString(), "write.lock");
                 //remove write lock if it exists, assuming all updating has been done at this stage
@@ -35,8 +38,8 @@ public class IndexMerger {
             e.printStackTrace();
         }finally {
             mainIndex.close();
-
-
+            if (writer != null)
+                writer.close();
         }
     }
 }
