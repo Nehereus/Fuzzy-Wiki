@@ -22,9 +22,9 @@ public class Indexer extends Reducer<Text, Text, Text, Text> {
 
     private void chooseIndexer(Context context) throws IOException {
         File indexDir = new File(ROOT_DIRECTORY + context.getTaskAttemptID().getTaskID().getId());
-        Directory directory = FSDirectory.open(indexDir.toPath()); // 打开 Lucene 目录
-        IndexWriterConfig config = new IndexWriterConfig(new StandardAnalyzer()); // 配置 IndexWriter
-        this.indexWriter = new IndexWriter(directory, config); // 初始化 IndexWriter
+        Directory directory = FSDirectory.open(indexDir.toPath()); // open Lucene dir
+        IndexWriterConfig config = new IndexWriterConfig(new StandardAnalyzer()); // config IndexWriter
+        this.indexWriter = new IndexWriter(directory, config); // init IndexWriter
     }
 
     @Override
@@ -52,7 +52,7 @@ public class Indexer extends Reducer<Text, Text, Text, Text> {
     @Override
     protected void cleanup(Context context) throws IOException, InterruptedException {
         indexWriter.close();
-        // 输出局部索引路径
+        // write the index directory to the context
         String indexDir = ROOT_DIRECTORY + context.getTaskAttemptID().getTaskID().getId();
         context.write(new Text("index"), new Text(indexDir));
     }
