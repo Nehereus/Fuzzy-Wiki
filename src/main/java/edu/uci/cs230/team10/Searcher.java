@@ -14,7 +14,8 @@ import java.io.IOException;
 import java.nio.file.Path;
 
 public class Searcher {
-    private final static Path mainIndexPath = Path.of("/home/hadoop/luceneIndex");
+    //private final static Path mainIndexPath = Path.of("/home/hadoop/luceneIndex");
+    private final static Path mainIndexPath = Path.of("/Users/nickdu/Downloads/luceneIndex");
     private static final IndexReader reader;
     private static final Logger logger = Logger.getLogger(Searcher.class.getName());
     static {
@@ -29,7 +30,7 @@ public class Searcher {
 
     /*a basic fuzzy searcher*/
     protected ScoreDoc[] search(String query) throws IOException {
-        logger.info("Searching for: " + query);
+        //logger.info("Searching for: " + query);
         //the ts is never closed
         FuzzyQuery fuzzyQuery = new FuzzyQuery(new Term("text", Tokenizer.tokenize(query).toString()));
         return searcher.search(fuzzyQuery, 10).scoreDocs;

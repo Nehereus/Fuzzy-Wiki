@@ -35,10 +35,10 @@ public class Indexer extends Reducer<Text, Text, Text, Text> {
     @Override
     public void reduce(Text key, Iterable<Text> values, Context context) throws IOException {
         Document doc = new Document();
-        doc.add(new TextField("title", key.toString(), Field.Store.YES));
+        doc.add(new StringField("title", key.toString(), Field.Store.YES));
 
         for (Text value : values) {
-            doc.add(new StringField("text", value.toString(), Field.Store.YES));
+            doc.add(new TextField("text", value.toString(), Field.Store.YES));
 
             try {
                 this.indexWriter.addDocument(doc);
