@@ -1,41 +1,25 @@
 package edu.uci.cs230.team10;
 
-import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
-import org.apache.lucene.index.*;
 import org.apache.lucene.store.ByteBuffersDirectory;
 import org.apache.lucene.store.Directory;
 import org.jline.utils.Log;
 import org.json.JSONObject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.lucene.analysis.standard.StandardAnalyzer;
-import org.apache.lucene.document.Document;
-import org.apache.lucene.document.Field;
-import org.apache.lucene.document.StringField;
-import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
-import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.FSDirectory;
 
 import java.io.*;
-import java.nio.file.Path;
-
 
 
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.Collections;
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 class IndexerTest {
-    private static int MAX_TERM_LENGTH = 32766;
+    private static final int MAX_TERM_LENGTH = 32766;
     Directory index;
     private IndexWriter writer;
     Parser parser;
@@ -64,7 +48,7 @@ class IndexerTest {
                     try {
 
                         indexer.reduce(new Text(jsonObject.getString("title")),
-                                (Iterable<Text>) Collections.singletonList(new Text(token)), null);
+                                Collections.singletonList(new Text(token)), null);
                     } catch (IllegalArgumentException e) {
                         Log.warn(e.getMessage());
                     }
