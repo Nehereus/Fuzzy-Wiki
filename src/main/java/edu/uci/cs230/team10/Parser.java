@@ -22,14 +22,21 @@ import org.apache.hadoop.mapreduce.Mapper;
 public class Parser extends Mapper<Object, Text, Text, Text> {
     private static final CharArraySet STOP_WORDS = new CharArraySet(Arrays.asList("r","title","text","short description","redirect","n","i", "me", "my", "myself", "we", "our", "ours", "ourselves", "you", "your", "yours", "yourself", "yourselves", "he", "him", "his", "himself", "she", "her", "hers", "herself", "it", "its", "itself", "they", "them", "their", "theirs", "themselves", "what", "which", "who", "whom", "this", "that", "these", "those", "am", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "having", "do", "does", "did", "doing", "a", "an", "the", "and", "but", "if", "or", "because", "as", "until", "while", "of", "at", "by", "for", "with", "about", "against", "between", "into", "through", "during", "before", "after", "above", "below", "to", "from", "up", "down", "in", "out", "on", "off", "over", "under", "again", "further", "then", "once", "here", "there", "when", "where", "why", "how", "all", "any", "both", "each", "few", "more", "most", "other", "some", "such", "no", "nor", "not", "only", "own", "same", "so", "than", "too", "very", "s", "t", "can", "will", "just", "don", "should", "now"), true);
     private Logger log = Logger.getLogger(Parser.class.getName());
+    private static final int MAX_TOKEN_LENGTH = 32766;
+
+    @Override
     public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
         String json = value.toString();
         try {
             JSONObject jsonObject = new JSONObject(json);
+            String title;
             if (jsonObject.has("text") && jsonObject.has("title")) {
+                title = jsonObject.getString("title");
                 Iterable<String> tokens = tokenize(jsonObject.get("text").toString());
+
+                StringBuilder sb = new StringBuilder();
                 for (String token : tokens) {
-                    context.write(new Text(jsonObject.getString("title")),new Text(token));
+                    context.write(new Text(title), new Text(token));
                 }
             } else {
                 context.getCounter("ParserErrors", "MissingFields").increment(1);
@@ -54,15 +61,16 @@ public class Parser extends Mapper<Object, Text, Text, Text> {
 
         try {
             ts.reset();
+            StringBuilder sb = new StringBuilder();
             while (ts.incrementToken()) {
                 String token = charTermAttr.toString();
-                tokens.add(token);
-                if (token.length()>32766) {
-                    log.warning("Token length exceeds 32766: " + charTermAttr.toString());
+                if(sb.length()+token.length()+1 > MAX_TOKEN_LENGTH){
+                    tokens.add(sb.toString());
+                    sb = new StringBuilder();
                 }
+                sb.append(token).append(" ");
             }
         }catch (Exception e) {
-            //e.printStackTrace();
             throw e;
         }
         finally {

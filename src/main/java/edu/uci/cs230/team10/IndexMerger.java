@@ -18,15 +18,25 @@ public class IndexMerger {
 
     public static void main(String[] args) throws IOException {
         Directory mainIndex = FSDirectory.open(mainIndexPath);
-
         try (IndexWriter writer = new IndexWriter(mainIndex, new IndexWriterConfig());
              DirectoryStream<Path> stream = Files.newDirectoryStream(Path.of(ROOT_DIRECTORY), "index-*")) {
             for (Path subDir : stream) {
+                final Path lockFile= Path.of(subDir.toString(), "write.lock");
+                //remove write lock if it exists, assuming all updating has been done at this stage
+                if (Files.exists(lockFile))
+                    Files.delete(lockFile);
                 Directory subIndex = FSDirectory.open(subDir);
+
+                //open an index writer for the sub index to close the unclosed index;
                 writer.addIndexes(subIndex);
             }
+            writer.commit();
         } catch (IOException e) {
-            logger.warning("Error reading index directories: " + e.getMessage());
+            e.printStackTrace();
+        }finally {
+            mainIndex.close();
+
+
         }
     }
 }

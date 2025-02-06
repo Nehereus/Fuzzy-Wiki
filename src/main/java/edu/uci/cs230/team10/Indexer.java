@@ -11,7 +11,6 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
-import org.apache.lucene.store.LockObtainFailedException;
 
 import java.io.File;
 import java.io.IOException;
@@ -36,20 +35,32 @@ public class Indexer extends Reducer<Text, Text, Text, Text> {
     public void reduce(Text key, Iterable<Text> values, Context context) throws IOException {
         Document doc = new Document();
         doc.add(new TextField("title", key.toString(), Field.Store.YES));
+
         for (Text value : values) {
             doc.add(new StringField("text", value.toString(), Field.Store.YES));
+
             try {
                 this.indexWriter.addDocument(doc);
             } catch (LockObtainFailedException e){
-                context.getCounter("IndexerErrors", "LockObtainFailedException").increment(1);
+                context.getCounter("IndexerErrors", "addingDocumentLockObtainFailedException").increment(1);
             } catch (IOException e) {
-                context.getCounter("IndexerErrors", "addingDocumentError").increment(1);
+                context.getCounter("IndexerErrors", "addingDocumentIOException").increment(1);
                 e.printStackTrace();
             }
         }
+
+        if(writer.isOpen()){
+            writer.addDocument(doc);
+        }else{
+            context.getCounter("IndexerErrors", "addingDocumentLockObtainFailedException").increment(1);
+            chooseIndexer();
+            reduce(key, values, context);
+        }
+        //writer.commit(); # may not necessary to flush the buffer everytime 
     }
 
     @Override
+
     protected void cleanup(Context context) throws IOException, InterruptedException {
         indexWriter.close();
         // write the index directory to the context
