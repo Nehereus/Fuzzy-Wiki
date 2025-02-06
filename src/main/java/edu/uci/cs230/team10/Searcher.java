@@ -14,27 +14,28 @@ import java.io.IOException;
 import java.nio.file.Path;
 
 public class Searcher {
-    private final static Path mainIndexPath = Path.of("/home/hadoop/luceneIndex");
-    private static Directory directory;
-    private static IndexReader reader;
+    //private final static Path mainIndexPath = Path.of("/home/hadoop/luceneIndex");
+    private final static Path mainIndexPath = Path.of("/Users/nickdu/Downloads/luceneIndex");
+    private static final IndexReader reader;
     private static final Logger logger = Logger.getLogger(Searcher.class.getName());
     static {
         try {
-            directory = FSDirectory.open(mainIndexPath);
+            Directory directory = FSDirectory.open(mainIndexPath);
             reader = DirectoryReader.open(directory);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
-    private static IndexSearcher searcher= new IndexSearcher(reader);
+    private static final IndexSearcher searcher= new IndexSearcher(reader);
 
     /*a basic fuzzy searcher*/
-    public ScoreDoc[] search(String query) throws IOException {
+    protected ScoreDoc[] search(String query) throws IOException {
         logger.info("Searching for: " + query);
-        FuzzyQuery fuzzyQuery = new FuzzyQuery(new Term("text", query));
-        ScoreDoc[] hits = searcher.search(fuzzyQuery, 10).scoreDocs;
-        return hits;
+        //the ts is never closed
+        FuzzyQuery fuzzyQuery = new FuzzyQuery(new Term("text", Tokenizer.tokenize(query).toString()));
+        return searcher.search(fuzzyQuery, 10).scoreDocs;
     }
+
     public static void main(String[] args) throws IOException {
         Searcher searcher = new Searcher();
         ScoreDoc[] hits = searcher.search(args[0]);

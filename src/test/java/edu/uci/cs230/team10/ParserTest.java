@@ -4,7 +4,6 @@ import java.io.IOException;
 import org.junit.jupiter.api.Test;
 import java.io.BufferedReader;
 import java.io.FileReader;
-import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.logging.Logger;
 
@@ -25,7 +24,7 @@ class ParserTest {
 
             while ((line = reader.readLine()) != null) {
                 var res = parser.tokenize(line);
-                int i = 0;
+                log.info("Tokenized result: " + res);
                 // Assert that the result is not null
                 assertNotNull(res, "Tokenized result should not be null");
 
