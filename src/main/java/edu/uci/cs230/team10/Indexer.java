@@ -41,7 +41,7 @@ public class Indexer extends Reducer<Text, Text, Text, Text> {
             try {
                 this.indexWriter.addDocument(doc);
             } catch (LockObtainFailedException e){
-                reduce(key, values, context);
+                context.getCounter("IndexerErrors", "LockObtainFailedException").increment(1);
             } catch (IOException e) {
                 context.getCounter("IndexerErrors", "addingDocumentError").increment(1);
                 e.printStackTrace();
