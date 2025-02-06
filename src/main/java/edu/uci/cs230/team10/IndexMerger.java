@@ -14,32 +14,30 @@ import java.util.logging.Logger;
 public class IndexMerger {
     private final static Logger logger = Logger.getLogger(IndexMerger.class.getName());
     private static final String ROOT_DIRECTORY = "/home/hadoop/index";
-    private final static Path mainIndexPath = Path.of(ROOT_DIRECTORY, "mainIndex");
+    private final static Path mainIndexPath = Path.of(ROOT_DIRECTORY);
 
     public static void main(String[] args) throws IOException {
         Directory mainIndex = FSDirectory.open(mainIndexPath);
-        IndexWriter writer = null;
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(Path.of(ROOT_DIRECTORY), "index-*")) {
 
-            writer = new IndexWriter(mainIndex, new IndexWriterConfig());
+            IndexWriter writer = new IndexWriter(mainIndex, new IndexWriterConfig());
 
             for (Path subDir : stream) {
                 final Path lockFile= Path.of(subDir.toString(), "write.lock");
                 //remove write lock if it exists, assuming all updating has been done at this stage
                 if (Files.exists(lockFile))
                     Files.delete(lockFile);
+
                 Directory subIndex = FSDirectory.open(subDir);
 
                 //open an index writer for the sub index to close the unclosed index;
                 writer.addIndexes(subIndex);
+                writer.commit();
             }
-            writer.commit();
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.severe("Error merging indexes: " + e.getMessage());
         }finally {
             mainIndex.close();
-            if (writer != null)
-                writer.close();
         }
     }
 }
