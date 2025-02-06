@@ -14,7 +14,7 @@ class SearcherTest {
     void search() {
         Searcher searcher = new Searcher();
         try {
-            var titleTest = searcher.search("water");
+            var titleTest = searcher.search("ssn");
             var fuzzyTitleTest = searcher.search("Anacism");
             var textTest = searcher.search("United States");
             var fuzzyTextTest = searcher.search("uinted states");

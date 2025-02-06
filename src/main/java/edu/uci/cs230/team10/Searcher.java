@@ -1,11 +1,14 @@
 package edu.uci.cs230.team10;
 
+import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.index.Term;
-import org.apache.lucene.search.FuzzyQuery;
+import org.apache.lucene.queryparser.classic.ParseException;
+import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
@@ -14,8 +17,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 
 public class Searcher {
-    //private final static Path mainIndexPath = Path.of("/home/hadoop/luceneIndex");
-    private final static Path mainIndexPath = Path.of("/Users/nickdu/Downloads/luceneIndex");
+    private final static Path mainIndexPath = Path.of("/home/hadoop/luceneIndex");
     private static final IndexReader reader;
     private static final Logger logger = Logger.getLogger(Searcher.class.getName());
     static {
@@ -29,14 +31,16 @@ public class Searcher {
     private static final IndexSearcher searcher= new IndexSearcher(reader);
 
     /*a basic fuzzy searcher*/
-    protected ScoreDoc[] search(String query) throws IOException {
+    protected ScoreDoc[] search(String query) throws IOException, ParseException {
         //logger.info("Searching for: " + query);
         //the ts is never closed
-        FuzzyQuery fuzzyQuery = new FuzzyQuery(new Term("text", Tokenizer.tokenize(query).toString()));
-        return searcher.search(fuzzyQuery, 10).scoreDocs;
+        Analyzer analyzer = new StandardAnalyzer();
+        Query q = new QueryParser("text", analyzer).parse(query);
+        return searcher.search(q, 10).scoreDocs;
     }
 
-    public static void main(String[] args) throws IOException {
+
+    public static void main(String[] args) throws IOException, ParseException {
         Searcher searcher = new Searcher();
         ScoreDoc[] hits = searcher.search(args[0]);
         int i = 0;
