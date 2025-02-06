@@ -11,6 +11,7 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
+import org.apache.lucene.store.LockObtainFailedException;
 
 import java.io.File;
 import java.io.IOException;
@@ -49,14 +50,6 @@ public class Indexer extends Reducer<Text, Text, Text, Text> {
             }
         }
 
-        if(writer.isOpen()){
-            writer.addDocument(doc);
-        }else{
-            context.getCounter("IndexerErrors", "addingDocumentLockObtainFailedException").increment(1);
-            chooseIndexer();
-            reduce(key, values, context);
-        }
-        //writer.commit(); # may not necessary to flush the buffer everytime 
     }
 
     @Override
