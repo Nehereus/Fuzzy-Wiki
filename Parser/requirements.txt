@@ -1,1 +1,2 @@
-mwxml~=0.3.4
+mwxml
+mwparserfromhell
