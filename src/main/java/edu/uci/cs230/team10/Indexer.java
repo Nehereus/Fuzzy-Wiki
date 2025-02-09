@@ -14,12 +14,10 @@ import org.apache.lucene.store.LockObtainFailedException;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.logging.Logger;
 
 public class Indexer extends Reducer<Text, Text, Text, Text> {
     private static final String ROOT_DIRECTORY = "/home/hadoop/index/";
     private IndexWriter indexWriter;
-    private Logger logger = Logger.getLogger(Indexer.class.getName());
 
     private void chooseIndexer(Context context) throws IOException {
         File indexDir = new File(ROOT_DIRECTORY + context.getTaskAttemptID().getTaskID().getId());
@@ -38,7 +36,6 @@ public class Indexer extends Reducer<Text, Text, Text, Text> {
         Document doc = new Document();
         // I decide to use the text field for both fields cuz lucene may provide better search results with the text field optimization
         doc.add(new TextField("title", key.toString(), Field.Store.YES));
-        logger.info("Indexing: " + key.toString());
 
         for (Text value : values) {
             doc.add(new TextField("text", value.toString(), Field.Store.YES));

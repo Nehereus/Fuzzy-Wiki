@@ -20,8 +20,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 
 public class Searcher {
-    //private final static Path mainIndexPath = Path.of("/home/hadoop/luceneIndex");
-    private final static Path mainIndexPath = Path.of("/Users/nickdu/Downloads/luceneIndex");
+    private static Path mainIndexPath = System.getenv("INDEX_PATH") == null ? Path.of("/home/hadoop/luceneIndex") : Path.of(System.getenv("INDEX_PATH"));
     private static final IndexReader reader;
     private static final Logger logger = Logger.getLogger(Searcher.class.getName());
 
