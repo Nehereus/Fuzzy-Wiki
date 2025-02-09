@@ -11,7 +11,7 @@ class SearcherTest {
     @Test
     void search() {
         String[] queries = new String[]{
-                "Giant panda",
+                "panda",
         };
         try {
             for (String query : queries) {

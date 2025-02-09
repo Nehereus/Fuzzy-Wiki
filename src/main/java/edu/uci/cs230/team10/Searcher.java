@@ -20,8 +20,8 @@ import java.io.IOException;
 import java.nio.file.Path;
 
 public class Searcher {
-    private final static Path mainIndexPath = Path.of("/home/hadoop/luceneIndex");
-    //private final static Path mainIndexPath = Path.of("/Users/nickdu/Downloads/luceneIndex");
+    //private final static Path mainIndexPath = Path.of("/home/hadoop/luceneIndex");
+    private final static Path mainIndexPath = Path.of("/Users/nickdu/Downloads/luceneIndex");
     private static final IndexReader reader;
     private static final Logger logger = Logger.getLogger(Searcher.class.getName());
 
@@ -60,7 +60,7 @@ public class Searcher {
         StoredFields storedFields = reader. storedFields();
         for (ScoreDoc hit : hits) {
             Document d = storedFields.document(hit.doc);
-            sb.append(i++ + ": "+ d.get("title")+"\n reason: "+ iSearcher.explain(q,hit.doc)).append("\n").append("\n");
+            sb.append(i++ + ": "+ d.get("text")+"\n reason: "+ iSearcher.explain(q,hit.doc)).append("\n").append("\n");
         }
         return sb.toString();
     }
