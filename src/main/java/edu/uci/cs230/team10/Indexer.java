@@ -39,17 +39,16 @@ public class Indexer extends Reducer<Text, Text, Text, Text> {
 
         for (Text value : values) {
             doc.add(new TextField("text", value.toString(), Field.Store.YES));
-
-            try {
-                this.indexWriter.addDocument(doc);
-            } catch (LockObtainFailedException e){
-                context.getCounter("IndexerErrors", "addingDocumentLockObtainFailedException").increment(1);
-            } catch (IOException e) {
-                context.getCounter("IndexerErrors", "addingDocumentIOException").increment(1);
-                throw e;
-            }
         }
 
+        try {
+            this.indexWriter.addDocument(doc);
+        } catch (LockObtainFailedException e){
+            context.getCounter("IndexerErrors", "addingDocumentLockObtainFailedException").increment(1);
+        } catch (IOException e) {
+            context.getCounter("IndexerErrors", "addingDocumentIOException").increment(1);
+            throw e;
+        }
     }
 
     @Override

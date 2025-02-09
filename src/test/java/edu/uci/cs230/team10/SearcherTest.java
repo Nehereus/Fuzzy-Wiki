@@ -3,6 +3,7 @@ package edu.uci.cs230.team10;
 import org.apache.lucene.search.ScoreDoc;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.util.logging.Logger;
 
 class SearcherTest {
@@ -11,7 +12,7 @@ class SearcherTest {
     @Test
     void search() {
         String[] queries = new String[]{
-                "panda",
+                "sfnm",
         };
         try {
             for (String query : queries) {
@@ -25,4 +26,5 @@ class SearcherTest {
             System.out.println(e.getMessage());
         }
     }
+
 }

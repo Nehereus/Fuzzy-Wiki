@@ -20,7 +20,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 
 public class Searcher {
-    private static Path mainIndexPath = System.getenv("INDEX_PATH") == null ? Path.of("/home/hadoop/luceneIndex") : Path.of(System.getenv("INDEX_PATH"));
+    private final static Path mainIndexPath = System.getenv("INDEX_PATH") == null ? Path.of("/home/hadoop/luceneIndex") : Path.of(System.getenv("INDEX_PATH"));
     private static final IndexReader reader;
     private static final Logger logger = Logger.getLogger(Searcher.class.getName());
 
@@ -45,10 +45,20 @@ public class Searcher {
     protected static Query parseQuery(String query) throws QueryNodeException {
         Analyzer analyzer = new StandardAnalyzer();
         final float titleBoost = 1.5f;
-        final float textBoost = 0.7f;
-        final String titleQuery = String.format("title:\"%s\"", query);
-        final String textQuery = String.format("text:\"%s~\"", query);
-        final String finalQuery = String.format("%s^%s OR %s^%s", titleQuery, titleBoost, textQuery, textBoost);
+        final float textBoost = 1.2f;
+        final float titleSplitBoost = 1f;
+        final float textSplitBoost = 0.8f;
+
+        final String titleQuery = String.format("title:\"%s\"~1", query);
+        final String textQuery = String.format("text:\"%s\"~3", query);
+
+        String finalQuery = String.format("%s^%s OR %s^%s", titleQuery, titleBoost, textQuery, textBoost);
+
+        if (query.contains(" ")) {
+            final String splitsQuery = String.format("title:(%s)^%s OR text:(%s)^%s", query, titleSplitBoost, query, textSplitBoost);
+            finalQuery = String.format("%s OR %s", finalQuery, splitsQuery);
+        }
+
         logger.info("Final Query: " + finalQuery);
         return new StandardQueryParser(analyzer).parse(finalQuery, "text");
     }
@@ -56,21 +66,31 @@ public class Searcher {
     public static String interpret(Query q,ScoreDoc[] hits) throws IOException {
         StringBuilder sb = new StringBuilder();
         int i=0;
-        StoredFields storedFields = reader. storedFields();
+        StoredFields storedFields = reader.storedFields();
         for (ScoreDoc hit : hits) {
             Document d = storedFields.document(hit.doc);
-            sb.append(i++ + ": "+ d.get("text")+"\n reason: "+ iSearcher.explain(q,hit.doc)).append("\n").append("\n");
+            sb.append(i++ + ": "+ d.get("title")+"\n reason: "+ iSearcher.explain(q,hit.doc)).append("\n").append("\n");
         }
         return sb.toString();
     }
 
-    public static void main(String[] args) throws IOException, ParseException, QueryNodeException {
+    public static void main(String[] args) throws IOException, QueryNodeException {
         ScoreDoc[] hits = Searcher.search(args[0]);
 
         int i = 0;
         for (ScoreDoc hit : hits) {
             Document d = reader.storedFields().document(hit.doc);
             System.out.println(i+": " + d.get("title"));
+        }
+    }
+
+    //private method used for testing if there are duplicate items in the index;
+    private static void detectDupDocs(String str) throws IOException {
+        for (int j = 0; j < reader.maxDoc(); j++) {
+            Document d = reader.storedFields().document(j);
+            if (d.get("title").contains(str)) {
+                System.out.println(j  + ": " + d.get("title"));
+            }
         }
     }
 
