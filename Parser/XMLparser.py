@@ -8,7 +8,7 @@ def process_page(dump, page):
         try:
             first_rev = next(iter(page))  # Access the first revision
             modified_text =  mwparserfromhell.parse(first_rev.slots.contents['main'].text).strip_code()
-            yield {"id": first_rev.id, "title": first_rev.page.title, "text": first_rev.slots.contents['main'].modified_text} # Yield a dictionary
+            yield {"id": first_rev.id, "title": first_rev.page.title, "text": modified_text} # Yield a dictionary
         except StopIteration:
             print(f"Warning: Page {page.title} has no revisions.") # Handle empty pages
 
