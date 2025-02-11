@@ -38,7 +38,7 @@ public class Indexer extends Reducer<Text, Text, Text, Text> {
         doc.add(new TextField("title", key.toString(), Field.Store.YES));
 
         for (Text value : values) {
-            doc.add(new TextField("text", value.toString(), Field.Store.YES));
+            doc.add(new TextField("text", value.toString(), Field.Store.NO));
         }
 
         try {

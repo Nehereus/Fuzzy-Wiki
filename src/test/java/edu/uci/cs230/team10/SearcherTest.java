@@ -12,8 +12,8 @@ class SearcherTest {
     @Test
     void search() {
         String[] queries = new String[]{
-                "sfnm",
-        };
+                    "Panda",
+    };
         try {
             for (String query : queries) {
                 ScoreDoc[] res = Searcher.search(query);

@@ -3,9 +3,7 @@ package edu.uci.cs230.team10;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
-import org.apache.lucene.index.DirectoryReader;
-import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.index.StoredFields;
+import org.apache.lucene.index.*;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.flexible.core.QueryNodeException;
 import org.apache.lucene.queryparser.flexible.standard.StandardQueryParser;
@@ -15,6 +13,7 @@ import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 
+import javax.sound.midi.SysexMessage;
 import java.util.logging.Logger;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -69,14 +68,13 @@ public class Searcher {
         StoredFields storedFields = reader.storedFields();
         for (ScoreDoc hit : hits) {
             Document d = storedFields.document(hit.doc);
-            sb.append(i++ + ": "+ d.get("title")+"\n reason: "+ iSearcher.explain(q,hit.doc)).append("\n").append("\n");
+            sb.append(hit.doc + ": "+ d.get("title")+"\n reason: "+ iSearcher.explain(q,hit.doc)).append("\n").append("\n");
         }
         return sb.toString();
     }
 
     public static void main(String[] args) throws IOException, QueryNodeException {
         ScoreDoc[] hits = Searcher.search(args[0]);
-
         int i = 0;
         for (ScoreDoc hit : hits) {
             Document d = reader.storedFields().document(hit.doc);
