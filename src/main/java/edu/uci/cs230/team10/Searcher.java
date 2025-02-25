@@ -10,17 +10,21 @@ import org.apache.lucene.queryparser.flexible.standard.StandardQueryParser;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.similarities.BM25Similarity;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 
 import javax.sound.midi.SysexMessage;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.logging.Logger;
 import java.io.IOException;
 import java.nio.file.Path;
 
 public class Searcher {
-    private final static Path mainIndexPath = System.getenv("INDEX_PATH") == null ? Path.of("/home/hadoop/luceneIndex") : Path.of(System.getenv("INDEX_PATH"));
-    private static final IndexReader reader;
+    private final static Path mainIndexPath = System.getenv("INDEX_PATH") == null ? Path.of("./slave0/") : Path.of(System.getenv("INDEX_PATH"));
+    public static final IndexReader reader;
     private static final Logger logger = Logger.getLogger(Searcher.class.getName());
 
     static {
@@ -31,7 +35,15 @@ public class Searcher {
             throw new RuntimeException(e);
         }
     }
+
+
+//    private static final MyBM25Similarity mySimilarity = new MyBM25Similarity();
+    public static final MyBM25Similarity mySimilarity = new MyBM25Similarity();
     private static final IndexSearcher iSearcher = new IndexSearcher(reader);
+
+    static {
+        iSearcher.setSimilarity(mySimilarity);  // set my similarity for the searcher to get idf, tf, and boost
+    }
 
     /*a basic fuzzy searcher*/
     protected static ScoreDoc[] search(String query) throws IOException,  QueryNodeException {
@@ -45,7 +57,7 @@ public class Searcher {
         Analyzer analyzer = new StandardAnalyzer();
         final float titleBoost = 1.5f;
         final float textBoost = 1.2f;
-        final float titleSplitBoost = 1f;
+        final float titleSplitBoost = 1.1f;
         final float textSplitBoost = 0.8f;
 
         final String titleQuery = String.format("title:\"%s\"~1", query);
@@ -58,7 +70,8 @@ public class Searcher {
             finalQuery = String.format("%s OR %s", finalQuery, splitsQuery);
         }
 
-        logger.info("Final Query: " + finalQuery);
+//        logger.info("Final Query: " + finalQuery);
+        System.out.println("Final Query: " + finalQuery);
         return new StandardQueryParser(analyzer).parse(finalQuery, "text");
     }
 
@@ -74,12 +87,49 @@ public class Searcher {
     }
 
     public static void main(String[] args) throws IOException, QueryNodeException {
-        ScoreDoc[] hits = Searcher.search(args[0]);
-        int i = 0;
-        for (ScoreDoc hit : hits) {
+//        ScoreDoc[] hits = Searcher.search(args[0]);
+        MyBM25Similarity mySimilarity = Searcher.mySimilarity;
+        ScoreDoc[] hits = Searcher.search("Auckland Zoo");
+        System.out.println(mySimilarity.searchResultMap);
+        for (int i=0;i<hits.length;i++) {
+            ScoreDoc hit = hits[i];
             Document d = reader.storedFields().document(hit.doc);
-            System.out.println(i+": " + d.get("title"));
+            System.out.println("Origin"+hit.doc+": " + d.get("title")+ " "+ hit.score);
+
         }
+        Map<String, SearchResult> searchResultMap = mySimilarity.searchResultMap;
+        Set<SearchResult> searchResults = new HashSet<>(searchResultMap.values());
+        float freq[][] = new float[hits.length][searchResultMap.size()];
+        float dl[][] = new float[hits.length][searchResultMap.size()];
+        float score[][] = new float[hits.length][searchResultMap.size()];
+        for(int i=0;i<hits.length;i++){
+            ScoreDoc hit = hits[i];
+            Document d = reader.storedFields().document(hit.doc);
+            int j = 0;
+            for(SearchResult searchResult: searchResults){
+                String field = searchResult.getCollectionStats().field();
+                String term = searchResult.getTerm();
+                freq[i][j] = LuceneTermStats.getTermFrequency(reader, field, term, hit.doc);
+                dl[i][j] = LuceneTermStats.getDocumentLength(reader, field, hit.doc);
+                score[i][j] = searchResult.computeScore(freq[i][j], dl[i][j]);
+                System.out.println(freq[i][j]+" "+dl[i][j]+" "+score[i][j]);
+                j++;
+            }
+        }
+        System.out.println("SearchResults:"+searchResults);
+        for(int i=0;i<hits.length;i++){
+            ScoreDoc hit = hits[i];
+            Document d = reader.storedFields().document(hit.doc);
+            System.out.println("Origin"+hit.doc+": " + d.get("title")+ " "+ hit.score);
+            System.out.print("My"+hit.doc+": " + d.get("title")+ " ");
+            float sum = 0;
+            for(int j=0;j<searchResults.size();j++){
+                sum += score[i][j];
+            }
+            System.out.println(sum);
+        }
+        System.out.println(interpret(parseQuery("Auckland Zoo"), hits));
+
     }
 
     //private method used for testing if there are duplicate items in the index;

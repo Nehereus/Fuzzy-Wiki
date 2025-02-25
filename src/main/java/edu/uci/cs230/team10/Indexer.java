@@ -52,7 +52,6 @@ public class Indexer extends Reducer<Text, Text, Text, Text> {
     }
 
     @Override
-
     protected void cleanup(Context context) throws IOException, InterruptedException {
         indexWriter.close();
         // write the index directory to the context
