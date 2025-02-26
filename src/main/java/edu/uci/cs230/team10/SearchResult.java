@@ -17,8 +17,6 @@ public class SearchResult {
     private float avgdl;    // average document length
     private float k1;   // BM25 parameters
     private float b;    // BM25 parameters
-    private float dl;   // document length, get from the result document
-    private float freq; // term frequency in the document, get from the result document
     private String str = null;
 
     public String getTerm(){
@@ -33,22 +31,12 @@ public class SearchResult {
     }
 
     public float computeScore(float freq, float dl){
-        float tf = (freq * (k1 + 1)) / (freq + k1 * (1 - b + b * dl / avgdl));// Different with BM25 in Lucene
+        float tf = (freq ) / (freq + k1 * (1 - b + b * dl / avgdl));// Different with BM25 in Lucene
+//        System.out.println("Computing:"+this.toStringCode());
+//        System.out.println("tf: "+tf+" idf: "+idf+" boost: "+boost+" freq: "+freq+" dl: "+dl+" avgdl: "+avgdl+" k1: "+k1+" b: "+b+" score: "+idf * tf * boost);
         return idf * tf * boost;
     }
 
-    public float computeScore(){
-        float tf = (freq * (k1 + 1)) / (freq + k1 * (1 - b + b * dl / avgdl));
-        return idf * tf * boost;
-    }
-
-    public float getDl() {
-        return dl;
-    }
-
-    public void setDl(float dl) {
-        this.dl = dl;
-    }
 
     public float getB() {
         return b;
@@ -97,16 +85,12 @@ public class SearchResult {
         sb.append(boost);
         sb.append("\nScore: ");
         sb.append(score);
-        sb.append("\nFreq: ");
-        sb.append(freq);
         sb.append("\nk1: ");
         sb.append(k1);
         sb.append("\nb: ");
         sb.append(b);
         sb.append("\navgdl: ");
         sb.append(avgdl);
-        sb.append("\ndl: ");
-        sb.append(dl);
         return sb.toString();
     }
 
@@ -161,11 +145,5 @@ public class SearchResult {
         this.boost = boost;
     }
 
-    public float getFreq() {
-        return freq;
-    }
 
-    public void setFreq(float freq) {
-        this.freq = freq;
-    }
 }

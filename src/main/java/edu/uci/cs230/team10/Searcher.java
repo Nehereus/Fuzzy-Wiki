@@ -89,13 +89,12 @@ public class Searcher {
     public static void main(String[] args) throws IOException, QueryNodeException {
 //        ScoreDoc[] hits = Searcher.search(args[0]);
         MyBM25Similarity mySimilarity = Searcher.mySimilarity;
-        ScoreDoc[] hits = Searcher.search("Auckland Zoo");
-        System.out.println(mySimilarity.searchResultMap);
+        ScoreDoc[] hits = Searcher.search("Computer Science and Technology");   // search for the query
+//        System.out.println(mySimilarity.searchResultMap);
         for (int i=0;i<hits.length;i++) {
             ScoreDoc hit = hits[i];
             Document d = reader.storedFields().document(hit.doc);
-            System.out.println("Origin"+hit.doc+": " + d.get("title")+ " "+ hit.score);
-
+//            System.out.println("Origin"+hit.doc+": " + d.get("title")+ " "+ hit.score);
         }
         Map<String, SearchResult> searchResultMap = mySimilarity.searchResultMap;
         Set<SearchResult> searchResults = new HashSet<>(searchResultMap.values());
@@ -104,31 +103,33 @@ public class Searcher {
         float score[][] = new float[hits.length][searchResultMap.size()];
         for(int i=0;i<hits.length;i++){
             ScoreDoc hit = hits[i];
-            Document d = reader.storedFields().document(hit.doc);
             int j = 0;
             for(SearchResult searchResult: searchResults){
                 String field = searchResult.getCollectionStats().field();
                 String term = searchResult.getTerm();
                 freq[i][j] = LuceneTermStats.getTermFrequency(reader, field, term, hit.doc);
                 dl[i][j] = LuceneTermStats.getDocumentLength(reader, field, hit.doc);
+//                System.out.println("field:"+field+" term:"+term+" freq:"+freq[i][j]);
                 score[i][j] = searchResult.computeScore(freq[i][j], dl[i][j]);
-                System.out.println(freq[i][j]+" "+dl[i][j]+" "+score[i][j]);
+//                System.out.println(freq[i][j]+" "+dl[i][j]+" "+score[i][j]);
                 j++;
             }
         }
-        System.out.println("SearchResults:"+searchResults);
+//        System.out.println("SearchResults:"+searchResults);
         for(int i=0;i<hits.length;i++){
             ScoreDoc hit = hits[i];
             Document d = reader.storedFields().document(hit.doc);
-            System.out.println("Origin"+hit.doc+": " + d.get("title")+ " "+ hit.score);
-            System.out.print("My"+hit.doc+": " + d.get("title")+ " ");
+            System.out.println("Lucene: ID: "+hit.doc+": " + d.get("title")+ " Score: "+ hit.score);
+            System.out.print("Mine: ID: "+hit.doc+": " + d.get("title")+ " ");
             float sum = 0;
             for(int j=0;j<searchResults.size();j++){
                 sum += score[i][j];
+//                System.out.print(score[i][j]+" ");
+//                System.out.println((searchResults.toArray())[j]);
             }
-            System.out.println(sum);
+            System.out.println("score:"+sum);
         }
-        System.out.println(interpret(parseQuery("Auckland Zoo"), hits));
+//        System.out.println(interpret(parseQuery("Auckland Zoo"), hits));
 
     }
 
