@@ -20,6 +20,13 @@ public class MyBM25Similarity extends Similarity {
     private static final float[] LENGTH_TABLE = new float[256];
     public final Map<String, SearchResult> searchResultMap = new Hashtable<>();
 
+    public Map<String, SearchResult> getSearchResultMap(){
+        return searchResultMap;
+    }
+
+    public void clearSearchResultMap(){
+        searchResultMap.clear();
+    }
 
     public MyBM25Similarity(float k1, float b, boolean discountOverlaps) {
         super(discountOverlaps);

@@ -37,6 +37,10 @@ public class SearchResult {
         return idf * tf * boost;
     }
 
+    public float computeTF(float freq, float dl){
+        return (freq ) / (freq + k1 * (1 - b + b * dl / avgdl));
+    }
+
 
     public float getB() {
         return b;
