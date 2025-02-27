@@ -5,7 +5,6 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
-import org.apache.lucene.document.StringField;
 import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
@@ -33,27 +32,26 @@ public class Indexer extends Reducer<Text, Text, Text, Text> {
     }
 
     @Override
-    public void reduce(Text key, Iterable<Text> values, Context context) throws IOException {
+    public void reduce(Text key, Iterable<Text> values, Context context) throws IOException{
         Document doc = new Document();
+        // I decide to use the text field for both fields cuz lucene may provide better search results with the text field optimization
         doc.add(new TextField("title", key.toString(), Field.Store.YES));
 
         for (Text value : values) {
-            doc.add(new StringField("text", value.toString(), Field.Store.YES));
-
-            try {
-                this.indexWriter.addDocument(doc);
-            } catch (LockObtainFailedException e){
-                context.getCounter("IndexerErrors", "addingDocumentLockObtainFailedException").increment(1);
-            } catch (IOException e) {
-                context.getCounter("IndexerErrors", "addingDocumentIOException").increment(1);
-                e.printStackTrace();
-            }
+            doc.add(new TextField("text", value.toString(), Field.Store.NO));
         }
 
+        try {
+            this.indexWriter.addDocument(doc);
+        } catch (LockObtainFailedException e){
+            context.getCounter("IndexerErrors", "addingDocumentLockObtainFailedException").increment(1);
+        } catch (IOException e) {
+            context.getCounter("IndexerErrors", "addingDocumentIOException").increment(1);
+            throw e;
+        }
     }
 
     @Override
-
     protected void cleanup(Context context) throws IOException, InterruptedException {
         indexWriter.close();
         // write the index directory to the context
