@@ -3,10 +3,7 @@ package edu.uci.cs230.team10.libFuzzyWiki;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
-import org.apache.lucene.document.Document;
-import org.apache.lucene.document.Field;
-import org.apache.lucene.document.StringField;
-import org.apache.lucene.document.TextField;
+import org.apache.lucene.document.*;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.store.Directory;
@@ -41,7 +38,7 @@ public class Indexer extends Reducer<Text, Text, Text, Text> {
 
         for (Text value : values) {
             if(isOriginText(value)) {
-                doc.add(new StringField("originalText", value.toString().substring(ORIGIN_TOKEN.length()), Field.Store.YES));
+                doc.add(new StoredField("originalText", value.toString().substring(ORIGIN_TOKEN.length())));
             }else {
                 doc.add(new TextField("text", value.toString(), Field.Store.NO));
             }
@@ -67,7 +64,7 @@ public class Indexer extends Reducer<Text, Text, Text, Text> {
     }
 
     /** a utility function used to determine if the text is the original text by identifying the special token */
-    public static boolean isOriginText (Text text) {
+    private static boolean isOriginText (Text text) {
         int len = ORIGIN_TOKEN.length();
         for(int i = 0; i < len; i++) {
             if (text.charAt(i) != ORIGIN_TOKEN.charAt(i)) {
