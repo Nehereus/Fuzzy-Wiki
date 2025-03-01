@@ -6,6 +6,7 @@ import com.typesafe.config.ConfigFactory;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 public class Server {
@@ -18,16 +19,18 @@ public class Server {
     private WikiSearcher wikiSearcher;
     private Javalin app;
     private int port = 8084;
+    private Logger logger = Logger.getLogger(Server.class.getName());
 
     public Server() {
         //important: pass -Dconfig.file=<application.conf> to the JVM
-        config = ConfigFactory.load();
+       // config = ConfigFactory.load();
         // should verify the config file here
-        app = Javalin.create().start(config.getInt("port"));
-        app.get("/search/{query}{forwarding}", ctx -> {
-            String query = ctx.queryParam("query");
-
-        });
+        app = Javalin.create().start(port);
+//        app.get("/search/{query}{forwarding}", ctx -> {
+//            String query = ctx.queryParam("query");
+//            boolean forwarding = Boolean.parseBoolean(ctx.queryParam("forwarding"));
+//            logger.info("searching for " + query+" forwarding "+forwarding);
+//        });
     }
     //utility function used to parse config file
     private void parseConfig() {
@@ -37,5 +40,9 @@ public class Server {
                 .collect(Collectors.toList());
 
         wikiSearcher= new WikiSearcher(new Searcher(Path.of(config.getString("indexPath"))),node, peers,config.getInt("totalShards"));
+    }
+
+    public static void main(String[] args) {
+        new Server();
     }
 }

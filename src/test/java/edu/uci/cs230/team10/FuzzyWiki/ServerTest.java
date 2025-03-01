@@ -8,8 +8,6 @@ import org.junit.jupiter.api.Test;
 class ServerTest {
     @Test
     void testServer() {
-        var config = ConfigFactory.load();
-        System.out.println(config.getInt("port"));
     }
 
 }
