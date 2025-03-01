@@ -1,12 +1,13 @@
-package edu.uci.cs230.team10;
+package edu.uci.cs230.team10.libFuzzyWiki;
 
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.CollectionStatistics;
 import org.apache.lucene.search.TermStatistics;
 
-class MyCollectionStatisTics{
+class MyCollectionStatisTics {
 
 }
+
 // Attention, CollectionStatistics and TermStatistics values cannot be changed after they are set.
 public class SearchResult {
     private final CollectionStatistics collectionStats;
@@ -19,10 +20,18 @@ public class SearchResult {
     private float b;    // BM25 parameters
     private String str = null;
 
-    public String getTerm(){
+    public SearchResult(CollectionStatistics collectionStats, TermStatistics... termStats) {
+        this.collectionStats = new CollectionStatistics(collectionStats.field(), collectionStats.maxDoc(), collectionStats.docCount(), collectionStats.sumTotalTermFreq(), collectionStats.sumDocFreq());
+        this.termStats = new TermStatistics[termStats.length];
+        for (int i = 0; i < termStats.length; i++) {
+            this.termStats[i] = new TermStatistics(termStats[i].term(), termStats[i].docFreq(), termStats[i].totalTermFreq());
+        }
+    }
+
+    public String getTerm() {
         // return all terms in the termStats divided by space
         StringBuilder sb = new StringBuilder();
-        for(TermStatistics termStat: termStats){
+        for (TermStatistics termStat : termStats) {
             sb.append(Term.toString(termStat.term()));
             sb.append(" ");
         }
@@ -30,17 +39,14 @@ public class SearchResult {
         return sb.toString();
     }
 
-    public float computeScore(float freq, float dl){
-        float tf = (freq ) / (freq + k1 * (1 - b + b * dl / avgdl));// Different with BM25 in Lucene
-//        System.out.println("Computing:"+this.toStringCode());
-//        System.out.println("tf: "+tf+" idf: "+idf+" boost: "+boost+" freq: "+freq+" dl: "+dl+" avgdl: "+avgdl+" k1: "+k1+" b: "+b+" score: "+idf * tf * boost);
+    public float computeScore(float freq, float dl) {
+        float tf = (freq) / (freq + k1 * (1 - b + b * dl / avgdl));// Different with BM25 in Lucene
         return idf * tf * boost;
     }
 
-    public float computeTF(float freq, float dl){
-        return (freq ) / (freq + k1 * (1 - b + b * dl / avgdl));
+    public float computeTF(float freq, float dl) {
+        return (freq) / (freq + k1 * (1 - b + b * dl / avgdl));
     }
-
 
     public float getB() {
         return b;
@@ -66,21 +72,13 @@ public class SearchResult {
         this.avgdl = avgdl;
     }
 
-    public SearchResult(CollectionStatistics collectionStats, TermStatistics... termStats) {
-        this.collectionStats = new CollectionStatistics(collectionStats.field(), collectionStats.maxDoc(), collectionStats.docCount(), collectionStats.sumTotalTermFreq(), collectionStats.sumDocFreq());
-        this.termStats = new TermStatistics[termStats.length];
-        for (int i = 0; i < termStats.length; i++) {
-            this.termStats[i] = new TermStatistics(termStats[i].term(), termStats[i].docFreq(), termStats[i].totalTermFreq());
-        }
-    }
-
     //  for debug
-    public String toString(){
+    public String toString() {
         StringBuilder sb = new StringBuilder();
         sb.append("\nCollectionStats: ");
         sb.append(collectionStats.toString());
         sb.append("\nTermStats: ");
-        for(TermStatistics termStat: termStats){
+        for (TermStatistics termStat : termStats) {
             sb.append(termStat.toString());
         }
         sb.append("\nIDF: ");
@@ -99,21 +97,21 @@ public class SearchResult {
     }
 
     // for key
-    public String toStringCode(){
-        if(str != null){
+    public String toStringCode() {
+        if (str != null) {
             return str;
         }
         StringBuilder sb = new StringBuilder();
         sb.append(collectionStats.field());
         sb.append(":");
-        for(TermStatistics termStat: termStats){
+        for (TermStatistics termStat : termStats) {
             sb.append(Term.toString(termStat.term()));
         }
         str = sb.toString();
         return sb.toString();
     }
 
-    public int hashCode(){
+    public int hashCode() {
         return toStringCode().hashCode();
     }
 

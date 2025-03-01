@@ -16,7 +16,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>edu.uci.cs230.team10.Main</mainClass>
+                            <mainClass>edu.uci.cs230.team10.libFuzzyWiki.Main</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
@@ -100,6 +100,11 @@
             <artifactId>hadoop-hdfs</artifactId>
             <version>${hadoop.version}</version>
         </dependency>
+            <dependency>
+                <groupId>org.apache.httpcomponents.client5</groupId>
+                <artifactId>httpclient5</artifactId>
+                <version>5.4.2</version>
+            </dependency>
         <dependency>
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-mapreduce-client-core</artifactId>
@@ -109,6 +114,16 @@
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <version>5.8.1</version>
+        </dependency>
+        <dependency>
+            <groupId>io.javalin</groupId>
+            <artifactId>javalin</artifactId>
+            <version>6.2.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.typesafe</groupId>
+            <artifactId>config</artifactId>
+            <version>1.4.3</version>
         </dependency>
     </dependencies>
 </project>

@@ -1,16 +1,15 @@
-package edu.uci.cs230.team10;
+package edu.uci.cs230.team10.libFuzzyWiki;
 
 import org.apache.lucene.index.*;
 import org.apache.lucene.search.*;
-import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.BytesRef;
-import java.io.IOException;
-import java.nio.file.Paths;
 
-public class LuceneTermStats {
+import java.io.IOException;
+
+public class myTermStats {
     public static int getTermFrequency(IndexReader reader, String field, String termText, int docId) throws IOException {
 //        System.out.println("getTermVec"+reader.getTermVector(docId, field));
-        if(termText.split(("\\s+")).length > 1){
+        if (termText.split(("\\s+")).length > 1) {
             return getPhraseFrequency(reader, field, termText, docId);
         }
         LeafReaderContext leafContext = reader.leaves().get(ReaderUtil.subIndex(docId, reader.leaves()));
@@ -38,9 +37,9 @@ public class LuceneTermStats {
         for (String word : phraseWords) {
             builder.add(new Term(field, word));
         }
-        if(field.equals("text")){
+        if (field.equals("text")) {
             builder.setSlop(3);
-        }else{
+        } else {
             builder.setSlop(1);
         }
         PhraseQuery phraseQuery = builder.build();
@@ -90,12 +89,11 @@ public class LuceneTermStats {
         while (termsEnum.next() != null) {
             postingsEnum = termsEnum.postings(postingsEnum, PostingsEnum.FREQS);
             if (postingsEnum != null && postingsEnum.advance(localDocId) == localDocId) {
-                length += postingsEnum.freq(); // 累加当前 doc 中所有 term 的词频
+                length += postingsEnum.freq();
             }
         }
         return length;
     }
-
 
 
 }
