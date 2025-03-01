@@ -17,8 +17,7 @@ public class IndexMerger {
     private final static Path mainIndexPath = Path.of("/home/hadoop/luceneIndex");
 
     public static void main(String[] args) throws IOException {
-        Directory mainIndex = FSDirectory.open(mainIndexPath);
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(ROOT_DIRECTORY, "*")) {
+        try (Directory mainIndex = FSDirectory.open(mainIndexPath); DirectoryStream<Path> stream = Files.newDirectoryStream(ROOT_DIRECTORY, "*")) {
             IndexWriter writer = new IndexWriter(mainIndex, new IndexWriterConfig());
             for (Path subDir : stream) {
                 logger.info("Merging index: " + subDir.toString());
@@ -35,8 +34,6 @@ public class IndexMerger {
             }
         } catch (IOException e) {
             logger.severe("Error merging indexes: " + e.getMessage());
-        } finally {
-            mainIndex.close();
         }
     }
 }

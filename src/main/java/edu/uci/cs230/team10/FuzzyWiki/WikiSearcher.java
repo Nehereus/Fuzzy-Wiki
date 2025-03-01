@@ -65,7 +65,7 @@ public class WikiSearcher {
                 .boxed()
                 .collect(Collectors.toList());
         remainingShards.removeAll(node.getShards());
-        while (remainingShards.size() > 0) {
+        while (!remainingShards.isEmpty()) {
             Node bestPeer = null;
             int bestCount = 0;
             for (Node peer : peers) {

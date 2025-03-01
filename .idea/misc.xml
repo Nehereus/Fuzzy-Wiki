@@ -11,7 +11,16 @@
     <option name="originalFiles">
       <list>
         <option value="$PROJECT_DIR$/pom.xml" />
+        <option value="$PROJECT_DIR$/src/main/java/edu/uci/cs230/team10/FuzzyWiki/pom.xml" />
+        <option value="$PROJECT_DIR$/ProjectFuzzyWiki/pom.xml" />
       </list>
+    </option>
+    <option name="ignoredFiles">
+      <set>
+        <option value="$PROJECT_DIR$/pom.xml" />
+        <option value="$PROJECT_DIR$/src/main/java/edu/uci/cs230/team10/FuzzyWiki/pom.xml" />
+        <option value="$PROJECT_DIR$/src/main/java/edu/uci/cs230/team10/libFuzzyWiki/pom.xml" />
+      </set>
     </option>
   </component>
   <component name="ProjectRootManager" version="2" languageLevel="JDK_11" default="true" project-jdk-name="homebrew-11" project-jdk-type="JavaSDK">

@@ -149,15 +149,13 @@ public static void main(String[] args) throws IOException, QueryNodeException {
     System.out.println("----------Before Merged----------");
     System.out.println("----------slave0----------");
     ScoreDoc[] hits = searcher1.search("Computer", 5);
-    for (int i = 0; i < hits.length; i++) {
-        ScoreDoc hit = hits[i];
+    for (ScoreDoc hit : hits) {
         Document d = searcher1.reader.storedFields().document(hit.doc);
         System.out.println("Lucene: ID: " + hit.doc + ": " + d.get("title") + " |Score: " + hit.score);
     }
     System.out.println("----------slave1----------");
     hits = searcher2.search("Computer", 5);
-    for (int i = 0; i < hits.length; i++) {
-        ScoreDoc hit = hits[i];
+    for (ScoreDoc hit : hits) {
         Document d = searcher2.reader.storedFields().document(hit.doc);
         System.out.println("Lucene: ID: " + hit.doc + ": " + d.get("title") + " |Score: " + hit.score);
     }
