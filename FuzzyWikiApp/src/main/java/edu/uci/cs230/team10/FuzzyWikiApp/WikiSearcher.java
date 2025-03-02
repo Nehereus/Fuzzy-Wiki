@@ -12,6 +12,8 @@ import org.apache.hc.core5.concurrent.FutureCallback;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -103,7 +105,10 @@ public class WikiSearcher implements AutoCloseable {
                 .map(node -> {
                     URI url ;
                     try {
-                        url = new URI(String.format("http://%s/search?query=%s&forwarding=false", node.getAddr()+":"+node.getPort(), query));
+                        // URL encode the query parameter to handle spaces and special characters
+                        String encodedQuery = URLEncoder.encode(query, StandardCharsets.UTF_8);
+                        url = new URI(String.format("http://%s/search?query=%s&forwarding=false",
+                                node.getAddr()+":"+node.getPort(), encodedQuery));
                     } catch (URISyntaxException e) {
                         logger.severe("Invalid URI: " + e.getMessage());
                         throw new RuntimeException(e);
