@@ -31,9 +31,6 @@ public class Server {
         //should verify the config file here
         parseConfig();
         Javalin app = Javalin.create();
-        app.exception(BadRequestResponse.class, (e, ctx) -> {
-            ctx.json("Bad request: ${e.message}.").status(500);
-        });
         app.get("/search", this::searchHandler);
         app.get("/document/{title}", this::documentHandler);
         app.start(port);
