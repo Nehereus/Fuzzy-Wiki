@@ -42,6 +42,7 @@ public class DocTermInfoHandler {
                     float TF = values[1];
                     score += IDF * TF;
                 }
+                System.out.println("the map: "+docTermInfo.textMap.get(doc));
                 ret.add(new MyScoredDoc(doc, score, docTermInfo.textMap.get(doc)));
             }
         }

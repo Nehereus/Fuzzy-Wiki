@@ -117,7 +117,7 @@ public class WikiSearcher implements AutoCloseable {
                         // the search api should return a json object representing a DocTermInfo object
                         @Override
                         public void completed(SimpleHttpResponse response) {
-                            logger.info("Response from " + finalUrl + ": " + response.getBodyText());
+                            logger.info("Response from " + finalUrl + ": " + response.getBody());
                             try {
                                 var temp = DocTermInfo.from(new JSONObject(response.getBodyText()));
                                 res.add(temp);
