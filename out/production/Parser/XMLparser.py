@@ -1,12 +1,14 @@
 import mwxml
 import json
 import argparse
+import mwparserfromhell
 
 def process_page(dump, page):
     for page in dump:
         try:
             first_rev = next(iter(page))  # Access the first revision
-            yield {"id": first_rev.id, "title": first_rev.page.title, "text": first_rev.slots.contents['main'].text} # Yield a dictionary
+            modified_text =  mwparserfromhell.parse(first_rev.slots.contents['main'].text).strip_code()
+            yield {"id": first_rev.id, "title": first_rev.page.title, "text": modified_text} # Yield a dictionary
         except StopIteration:
             print(f"Warning: Page {page.title} has no revisions.") # Handle empty pages
 
