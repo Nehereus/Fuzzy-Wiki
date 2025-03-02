@@ -1,6 +1,8 @@
 package edu.uci.cs230.team10.FuzzyWikiApp;
 import edu.uci.cs230.team10.libFuzzyWiki.MyScoredDoc;
+import org.json.JSONObject;
 
+import java.io.FileNotFoundException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,8 +30,15 @@ public final class DocumentsStorage {
      * @param title the title of the document
      * @return the text of the document
      */
-    public static String get(String title) {
+    public static String get(String title) throws FileNotFoundException {
+        if (!titleTextMap.containsKey(title)) {
+            throw new FileNotFoundException("Document not found");
+        }
         return titleTextMap.get(title);
+    }
+
+    public static JSONObject getJson(String title) throws FileNotFoundException {
+        return new JSONObject().put("title", title).put("text", get(title));
     }
 
     public static void putAll(List<MyScoredDoc> docs) {

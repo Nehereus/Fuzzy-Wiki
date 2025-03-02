@@ -46,14 +46,15 @@ public class WikiSearcher {
     }
 
     //a meta search function that search locally, forward requests, and merges the search results from all nodes and ranks them
-    public List<MyScoredDoc> searchForwardMerge(String query) throws IOException, QueryNodeException {
+    public List<JSONObject> searchForwardMerge(String query) throws IOException, QueryNodeException {
         DocTermInfo localRes = search(query);
         // needs to come up with an algorithm to select the nodes based on the index shards they held to achieve full index coverage
        List<DocTermInfo> forwardRes = forward(query, selectedPeers);
        forwardRes.add(localRes);
        List<MyScoredDoc> res = DocTermInfoHandler.mergeAndRank(forwardRes);
        DocumentsStorage.putAll(res);
-       return res;
+       List<JSONObject> jsonRes = res.stream().map(MyScoredDoc::toJson).collect(Collectors.toList());
+       return jsonRes;
     }
 
     //This is essentially set cover problem, which is NP-hard, but considering the rarity
@@ -101,7 +102,7 @@ public class WikiSearcher {
                 .map(node -> {
                     URI url = null;
                     try {
-                        url = new URI(String.format("%s/search?query=%s&forwarding=true", node.getUrl(), query));
+                        url = new URI(String.format("%s/search?query=%s&forwarding=false", node.getUrl(), query));
                     } catch (URISyntaxException e) {
                         logger.severe("Invalid URI: " + e.getMessage());
                         throw new RuntimeException(e);
