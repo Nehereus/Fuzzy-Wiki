@@ -60,7 +60,7 @@ public class Server {
             return;
         }
         if(forwarding){
-            var res ="fuck";
+            var res ="";
             try{
                 res =wikiSearcher.searchForwardMerge(query).toString();
             }catch (Exception e){
