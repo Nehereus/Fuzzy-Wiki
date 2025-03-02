@@ -17,7 +17,7 @@ public final class MyScoredDoc {
         JSONObject res = new JSONObject();
         res.put("title", title);
         res.put("score", score);
-        res.put("text", text.substring(0, Math.min(text.length(), text.indexOf('.')+1)));
+        res.put("text", text!=null?text.substring(0, Math.min(text.length(), text.indexOf('.')+1)):"EMPTY");
         return res;
     }
 }

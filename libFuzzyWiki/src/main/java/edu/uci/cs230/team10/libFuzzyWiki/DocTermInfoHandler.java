@@ -42,6 +42,9 @@ public class DocTermInfoHandler {
                     float TF = values[1];
                     score += IDF * TF;
                 }
+                if(docTermInfo.textMap.get(doc)==null){
+                    System.out.println("docTermInfo.textMap.get() is null: "+doc);
+                }
                 ret.add(new MyScoredDoc(doc, score, docTermInfo.textMap.get(doc)));
             }
         }
