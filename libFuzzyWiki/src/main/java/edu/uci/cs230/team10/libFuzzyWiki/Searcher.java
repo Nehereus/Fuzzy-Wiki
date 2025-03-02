@@ -23,7 +23,6 @@ import java.util.logging.Logger;
 
 public class Searcher {
     private final IndexReader reader;
-    private final Logger logger = Logger.getLogger(Searcher.class.getName());
     private final MyBM25Similarity mySimilarity;
     private final IndexSearcher iSearcher;
 
@@ -76,16 +75,6 @@ public class Searcher {
         return new StandardQueryParser(analyzer).parse(finalQuery, "text");
     }
 
-    public String interpret(Query q, ScoreDoc[] hits) throws IOException {
-        StringBuilder sb = new StringBuilder();
-        int i = 0;
-        StoredFields storedFields = reader.storedFields();
-        for (ScoreDoc hit : hits) {
-            Document d = storedFields.document(hit.doc);
-            sb.append(hit.doc + ": " + d.get("title") + "\n reason: " + iSearcher.explain(q, hit.doc)).append("\n").append("\n");
-        }
-        return sb.toString();
-    }
     public DocTermInfo searchForMerge(String query) throws QueryNodeException, IOException {
         return searchForMerge(query, 10);
     }
@@ -111,7 +100,7 @@ public class Searcher {
                 info[0] = searchResult.getBoost() * searchResult.getIdf();   // weight
                 info[1] = searchResult.computeTF(myTermStats.getTermFrequency(this.reader, field, term, hit.doc)
                         , myTermStats.getDocumentLength(this.reader, field, hit.doc));   // tf
-                map.get("title").put(key, info);
+                map.get(d.get("title")).put(key, info);
             }
             textMap.put(d.get("title"), d.get("originalText"));
         }

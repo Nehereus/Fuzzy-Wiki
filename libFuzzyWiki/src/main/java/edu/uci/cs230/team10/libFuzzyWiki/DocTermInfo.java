@@ -17,6 +17,7 @@ public class DocTermInfo {
         this.weightMap.putAll(weightMap);
         this.textMap.putAll(textMap);
     }
+
     public DocTermInfo() {}
 
     public JSONObject toJson() {
@@ -29,13 +30,16 @@ public class DocTermInfo {
     public static DocTermInfo from(JSONObject json) {
         DocTermInfo res = new DocTermInfo();
 
-        var infoMapJson = json.getJSONObject("infoMap");
+        JSONObject infoMapJson = json.getJSONObject("infoMap");
         for (String doc : infoMapJson.keySet()) {
             var termMapJson = infoMapJson.getJSONObject(doc);
             Map<String, float[]> termMap = new HashMap<>();
             for (String term : termMapJson.keySet()) {
                 List<Object> values = termMapJson.getJSONArray(term).toList();
-                termMap.put(term, new float[]{(float)values.get(0), (float)values.get(1)});
+                termMap.put(term, new float[]{
+                        ((Number) values.get(0)).floatValue(),
+                        ((Number) values.get(1)).floatValue()
+                });
             }
             res.infoMap.put(doc, termMap);
         }

@@ -12,12 +12,12 @@ public final class MyScoredDoc {
         this.score = score;
         this.text = text;
     }
-
-    public JSONObject toJson() {
+    // the returned text will be truncated to the end of first sentence or the length of the text, whichever is shorter
+    public JSONObject toJsonPreview() {
         JSONObject res = new JSONObject();
         res.put("title", title);
         res.put("score", score);
-        res.put("text", text);
+        res.put("text", text.substring(0, Math.min(text.length(), text.indexOf('.')+1)));
         return res;
     }
 }

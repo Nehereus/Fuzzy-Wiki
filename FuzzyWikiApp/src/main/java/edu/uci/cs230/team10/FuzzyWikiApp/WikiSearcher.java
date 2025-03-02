@@ -24,7 +24,7 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-public class WikiSearcher {
+public class WikiSearcher implements AutoCloseable {
     private final List<Node> selectedPeers;
     private final Node node;
     private final Searcher searcher;
@@ -53,8 +53,7 @@ public class WikiSearcher {
        forwardRes.add(localRes);
        List<MyScoredDoc> res = DocTermInfoHandler.mergeAndRank(forwardRes);
        DocumentsStorage.putAll(res);
-       List<JSONObject> jsonRes = res.stream().map(MyScoredDoc::toJson).collect(Collectors.toList());
-       return jsonRes;
+       return res.stream().map(MyScoredDoc::toJsonPreview).collect(Collectors.toList());
     }
 
     //This is essentially set cover problem, which is NP-hard, but considering the rarity
@@ -83,16 +82,18 @@ public class WikiSearcher {
             if (bestPeer != null) {
                 remainingShards.removeAll(bestPeer.getShards());
                 res.add(bestPeer);
+                logger.info("selecting peer: " + bestPeer.getName());
             } else {
                 logger.warning("No peer can cover the remaining shards, check the shards configuration");
                 break;
             }
         }
-        logger.info("Selected peers: " + res);
-        return peers;
+
+        return res;
     }
     //the search function used for local search
     public DocTermInfo search(String query) throws IOException, QueryNodeException, RuntimeException {
+        logger.info("Accepting task for query: " + query);
         return searcher.searchForMerge(query);
     }
 
@@ -100,9 +101,9 @@ public class WikiSearcher {
         List<DocTermInfo> res= new ArrayList<>();
         CompletableFuture<?>[] futuresArray = nodes.stream()
                 .map(node -> {
-                    URI url = null;
+                    URI url ;
                     try {
-                        url = new URI(String.format("%s/search?query=%s&forwarding=false", node.getUrl(), query));
+                        url = new URI(String.format("http://%s/search?query=%s&forwarding=false", node.getAddr()+":"+node.getPort(), query));
                     } catch (URISyntaxException e) {
                         logger.severe("Invalid URI: " + e.getMessage());
                         throw new RuntimeException(e);
@@ -154,7 +155,7 @@ public class WikiSearcher {
         }
         return res;
     }
-
+    @Override
     public void close() throws IOException {
         httpClient.close();
     }

@@ -20,11 +20,8 @@ public class Server {
      * the simplest implementation of the required APIs
      */
     Config config;
-    private Node node;
-    private List<Node> peers;
     private WikiSearcher wikiSearcher;
-    private final Javalin app;
-    private final int port = 8084;
+    private int port;
     private final Logger logger = Logger.getLogger(Server.class.getName());
 
     public Server() {
@@ -32,13 +29,13 @@ public class Server {
         config = ConfigFactory.load();
         //should verify the config file here
         parseConfig();
-        app = Javalin.create();
-        app.get("/search/{query}{forwarding}", this::searchHandler);
+        Javalin app = Javalin.create();
+        app.get("/search", this::searchHandler);
         app.get("/document/{title}", this::documentHandler);
         app.start(port);
     }
 
-    private void documentHandler(@NotNull Context context) throws FileNotFoundException {
+    private void documentHandler(@NotNull Context context) {
         String title = context.pathParam("title");
         logger.info("getting document for " + title);
         try{
@@ -49,11 +46,10 @@ public class Server {
             context.result("Document not found");
             context.status(404);
             logger.warning("Document not found");
-            return;
         }
     }
 
-    private void searchHandler(Context ctx) throws QueryNodeException, IOException {
+    private void searchHandler(Context ctx)  {
         String query = ctx.queryParam("query");
         boolean forwarding = Boolean.parseBoolean(ctx.queryParam("forwarding"));
         logger.info("searching for " + query+" forwarding "+forwarding);
@@ -61,23 +57,29 @@ public class Server {
             ctx.result("query parameter is missing");
             ctx.status(400);
             return;
-        }else{
-            ctx.status(200);
         }
+        try{
         if(forwarding){
             ctx.result(wikiSearcher.searchForwardMerge(query).toString());
-        }else {
+            }else {
             ctx.result(wikiSearcher.search(query).toJson().toString());
         }
+        }catch (IOException | QueryNodeException e){
+            logger.warning(e.toString());
+            ctx.result("Internal server error");
+            ctx.status(500);
+        }
+        ctx.status(200);
     }
     //utility function used to parse config file
     private void parseConfig() {
-        node = new Node(config.getString("name"), config.getString("addr"), config.getIntList("shards"));
-       peers= config.getConfigList("nodes").stream()
-                .map(node -> new Node(node.getString("name"), node.getString("addr"), node.getIntList("shards")))
+        port = config.getInt("port");
+        Node node1 = new Node(config.getString("name"), config.getString("addr"), config.getInt("port"), config.getIntList("shards"));
+        logger.info("loading config file: Node:"+ node1.getName()+" addr:"+ node1.getAddr()+" shards:"+ node1.getShards());
+        List<Node> peers = config.getConfigList("peers").stream()
+                .map(node -> new Node(node.getString("name"), node.getString("addr"), node.getInt("port"), node.getIntList("shards")))
                 .collect(Collectors.toList());
-
-        wikiSearcher= new WikiSearcher(new Searcher(Path.of(config.getString("indexPath"))),node, peers,config.getInt("totalShards"));
+        wikiSearcher= new WikiSearcher(new Searcher(Path.of(config.getString("indexPath"))), node1, peers,config.getInt("totalShards"));
     }
 
     public static void main(String[] args) {
