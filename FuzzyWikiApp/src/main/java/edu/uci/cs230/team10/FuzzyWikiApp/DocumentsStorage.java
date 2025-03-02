@@ -1,5 +1,4 @@
-package edu.uci.cs230.team10.FuzzyWiki;
-
+package edu.uci.cs230.team10.FuzzyWikiApp;
 import edu.uci.cs230.team10.libFuzzyWiki.MyScoredDoc;
 
 import java.util.HashMap;

@@ -1,9 +1,8 @@
-package edu.uci.cs230.team10.FuzzyWiki;
+package edu.uci.cs230.team10.FuzzyWikiApp;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import io.javalin.Javalin;
 import edu.uci.cs230.team10.libFuzzyWiki.Searcher;
-import com.typesafe.config.ConfigFactory;
-import io.javalin.config.MultipartConfig;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -23,15 +22,15 @@ public class Server {
     private final Logger logger = Logger.getLogger(Server.class.getName());
 
     public Server() {
-        //important: pass -Dconfig.file=<application.conf> to the JVM
-       // config = ConfigFactory.load();
-        // should verify the config file here
+        // important: pass -Dconfig.file=<application.conf> to the JVM
+        config = ConfigFactory.load();
+        //should verify the config file here
         app = Javalin.create();
-//        app.get("/search/{query}{forwarding}", ctx -> {
-//            String query = ctx.queryParam("query");
-//            boolean forwarding = Boolean.parseBoolean(ctx.queryParam("forwarding"));
-//            logger.info("searching for " + query+" forwarding "+forwarding);
-//        });
+        app.get("/search/{query}{forwarding}", ctx -> {
+            String query = ctx.queryParam("query");
+            boolean forwarding = Boolean.parseBoolean(ctx.queryParam("forwarding"));
+            logger.info("searching for " + query+" forwarding "+forwarding);
+        });
     }
     //utility function used to parse config file
     private void parseConfig() {
@@ -44,9 +43,6 @@ public class Server {
     }
 
     public static void main(String[] args) {
-        var app = Javalin.create(c->{
-                })
-                .get("/", ctx -> ctx.result("Hello World"))
-                .start(7070);
+        new Server();
     }
 }
