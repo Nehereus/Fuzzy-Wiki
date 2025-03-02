@@ -3,7 +3,6 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import io.javalin.Javalin;
 import edu.uci.cs230.team10.libFuzzyWiki.Searcher;
-import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import org.apache.lucene.queryparser.flexible.core.QueryNodeException;
 import org.jetbrains.annotations.NotNull;
@@ -65,8 +64,8 @@ public class Server {
                 res =wikiSearcher.searchForwardMerge(query).toString();
             }catch (Exception e){
                 e.printStackTrace();
+                ctx.status(500);
             }
-
             ctx.result(res);
             }else {
             ctx.result(wikiSearcher.search(query).toJson().toString());
