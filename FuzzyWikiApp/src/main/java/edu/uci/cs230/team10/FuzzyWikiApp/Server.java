@@ -3,6 +3,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import io.javalin.Javalin;
 import edu.uci.cs230.team10.libFuzzyWiki.Searcher;
+import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import org.apache.lucene.queryparser.flexible.core.QueryNodeException;
 import org.jetbrains.annotations.NotNull;
@@ -30,6 +31,9 @@ public class Server {
         //should verify the config file here
         parseConfig();
         Javalin app = Javalin.create();
+        app.exception(BadRequestResponse.class, (e, ctx) -> {
+            ctx.json("Bad request: ${e.message}.").status(500);
+        });
         app.get("/search", this::searchHandler);
         app.get("/document/{title}", this::documentHandler);
         app.start(port);
