@@ -49,7 +49,7 @@ public class Server {
         }
     }
 
-    private void searchHandler(Context ctx)  {
+    private void searchHandler(Context ctx) throws QueryNodeException, IOException {
         String query = ctx.queryParam("query");
         boolean forwarding = Boolean.parseBoolean(ctx.queryParam("forwarding"));
         logger.info("searching for " + query+" forwarding "+forwarding);
@@ -58,16 +58,10 @@ public class Server {
             ctx.status(400);
             return;
         }
-        try{
         if(forwarding){
             ctx.result(wikiSearcher.searchForwardMerge(query).toString());
             }else {
             ctx.result(wikiSearcher.search(query).toJson().toString());
-        }
-        }catch (IOException | QueryNodeException e){
-            logger.warning(e.toString());
-            ctx.result("Internal server error");
-            ctx.status(500);
         }
         ctx.status(200);
     }
