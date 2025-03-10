@@ -15,8 +15,10 @@ import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 
 import org.apache.lucene.queryparser.flexible.core.QueryNodeException;
@@ -48,14 +50,50 @@ public class WikiSearcher implements AutoCloseable {
     }
 
     //a meta search function that search locally, forward requests, and merges the search results from all nodes and ranks them
-    public List<JSONObject> searchForwardMerge(String query) throws IOException, QueryNodeException {
-        DocTermInfo localRes = search(query);
-        // needs to come up with an algorithm to select the nodes based on the index shards they held to achieve full index coverage
-       List<DocTermInfo> forwardRes = forward(query, selectedPeers);
-       forwardRes.add(localRes);
-       List<MyScoredDoc> res = DocTermInfoHandler.mergeAndRank(forwardRes);
-       DocumentsStorage.putAll(res);
-       return res.stream().map(MyScoredDoc::toJsonPreview).collect(Collectors.toList());
+    public List<JSONObject> searchForwardMerge(String query) throws IOException, QueryNodeException,CompletionException {
+        long startTime = System.nanoTime();
+        CompletableFuture<DocTermInfo> localSearchFuture = CompletableFuture.supplyAsync(() -> {
+            try {
+                return search(query);
+            } catch (IOException | QueryNodeException e) {
+                throw new CompletionException(e);
+            }
+        });
+
+        CompletableFuture<List<DocTermInfo>> forwardSearchFuture = CompletableFuture.supplyAsync(() -> {
+            try {
+                return forward(query, selectedPeers);
+            } catch (RuntimeException e) {
+                throw new CompletionException(e);
+            }
+        });
+
+        CompletableFuture<Void> allFutures = CompletableFuture.allOf(localSearchFuture, forwardSearchFuture);
+
+        try {
+            allFutures.join();
+            DocTermInfo localRes = localSearchFuture.getNow(null);
+            List<DocTermInfo> forwardRes = forwardSearchFuture.getNow(Collections.emptyList());
+            forwardRes.add(localRes);
+            List<MyScoredDoc> res = DocTermInfoHandler.mergeAndRank(forwardRes);
+            DocumentsStorage.putAll(res);
+            List<JSONObject> jsonRes = res.stream()
+                    .map(MyScoredDoc::toJsonPreview)
+                    .collect(Collectors.toList());
+            jsonRes.add(new JSONObject()
+                    .put("timeUsed", (System.nanoTime() - startTime) / 1_000_000));
+
+            return jsonRes;
+        } catch (CompletionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof IOException) {
+                throw (IOException) cause;
+            } else if (cause instanceof QueryNodeException) {
+                throw (QueryNodeException) cause;
+            } else {
+                throw e;
+            }
+        }
     }
 
     //This is essentially set cover problem, which is NP-hard, but considering the rarity
@@ -96,7 +134,11 @@ public class WikiSearcher implements AutoCloseable {
     //the search function used for local search
     public DocTermInfo search(String query) throws IOException, QueryNodeException, RuntimeException {
         logger.info("Accepting task for query: " + query);
-        return searcher.searchForMerge(query);
+        long startTime = System.nanoTime();
+        DocTermInfo res = searcher.searchForMerge(query);
+        int timeUsed = (int) ((System.nanoTime() - startTime) / 1_000_000);  // Convert to int (ms)
+        res.setTimeUsed(timeUsed);
+        return res;
     }
 
     private List<DocTermInfo> forward(String query, List<Node> nodes) {

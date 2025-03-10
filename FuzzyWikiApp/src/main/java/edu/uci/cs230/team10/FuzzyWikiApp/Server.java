@@ -35,21 +35,21 @@ public class Server {
         app.start(port);
     }
 
-    private void documentHandler(@NotNull Context context) {
-        String title = context.pathParam("title");
+    private void documentHandler(@NotNull Context ctx) {
+        String title = ctx.pathParam("title");
         logger.info("getting document for " + title);
         try{
             JSONObject res = DocumentsStorage.getJson(title);
-            context.result(res.toString());
-            context.status(200);
+            ctx.result(res.toString());
+            ctx.status(200);
         }catch (FileNotFoundException e){
-            context.result("Document not found");
-            context.status(404);
+            ctx.result("Document not found");
+            ctx.status(404);
             logger.warning("Document not found");
         }
     }
 
-    private void searchHandler(Context ctx) throws QueryNodeException, IOException {
+    private void searchHandler(@NotNull Context ctx) throws QueryNodeException, IOException {
         String query = ctx.queryParam("query");
         boolean forwarding = Boolean.parseBoolean(ctx.queryParam("forwarding"));
         logger.info("searching for " + query+" forwarding "+forwarding);

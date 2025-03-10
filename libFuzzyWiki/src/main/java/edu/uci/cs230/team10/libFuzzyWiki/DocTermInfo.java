@@ -12,6 +12,8 @@ public class DocTermInfo {
 
     public final Map<String, Float> weightMap = new HashMap<>(); // average of IDF*boost for each term;
 
+    private int timeUsed = 0; // time used for the search in ms, a very bad code style for convenience
+
     public DocTermInfo( Map<String, Map<String, float[]>> infoMap, Map<String, Float> weightMap, Map<String, String> textMap) {
         this.infoMap.putAll(infoMap);
         this.weightMap.putAll(weightMap);
@@ -25,6 +27,7 @@ public class DocTermInfo {
         res.put("infoMap", new JSONObject(infoMap));
         res.put("weightMap", new JSONObject(weightMap));
         res.put("textMap", new JSONObject(textMap));
+        res.put("timeUsed", timeUsed);
         return res;
     }
     public static DocTermInfo from(JSONObject json) {
@@ -52,6 +55,7 @@ public class DocTermInfo {
         for (String doc : textMapJson.keySet()) {
             res.textMap.put(doc, textMapJson.getString(doc));
         }
+        res.timeUsed = json.getInt("timeUsed");
 
         return res;
     }
@@ -83,5 +87,13 @@ public class DocTermInfo {
             }
         }
         return sb.toString();
+    }
+
+    public int getTimeUsed() {
+        return timeUsed;
+    }
+
+    public void setTimeUsed(int timeUsed) {
+        this.timeUsed = timeUsed;
     }
 }
