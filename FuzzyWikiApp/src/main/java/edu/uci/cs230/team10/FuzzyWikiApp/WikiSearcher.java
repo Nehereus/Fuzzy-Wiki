@@ -75,13 +75,19 @@ public class WikiSearcher implements AutoCloseable {
             DocTermInfo localRes = localSearchFuture.getNow(null);
             List<DocTermInfo> forwardRes = forwardSearchFuture.getNow(Collections.emptyList());
             forwardRes.add(localRes);
+            int searchTime = (int) ((System.nanoTime() - startTime) / 1_000_000);
+
+            startTime = System.nanoTime();
             List<MyScoredDoc> res = DocTermInfoHandler.mergeAndRank(forwardRes);
             DocumentsStorage.putAll(res);
             List<JSONObject> jsonRes = res.stream()
                     .map(MyScoredDoc::toJsonPreview)
                     .collect(Collectors.toList());
+            int mergeTime = (int) ((System.nanoTime() - startTime) / 1_000_000);
             jsonRes.add(new JSONObject()
-                    .put("timeUsed", (System.nanoTime() - startTime) / 1_000_000));
+                    .put("totalTimeUsed", searchTime + mergeTime).
+                    put("searchTimeUsed", searchTime).
+                    put("mergeTimeUsed", mergeTime));
 
             return jsonRes;
         } catch (CompletionException e) {
