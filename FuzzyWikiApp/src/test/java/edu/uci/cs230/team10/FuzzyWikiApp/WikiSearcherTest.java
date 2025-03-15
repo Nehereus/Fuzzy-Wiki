@@ -13,8 +13,7 @@ import java.util.logging.Logger;
 
 
 class WikiSearcherTest {
-    static WikiSearcher wikiSearcher = new WikiSearcher(new Searcher(Path.of("/tmp/luceneIndex"))
-            ,new Node("master","127.0.0.1",8080, List.of(1)),new ArrayList<Node>(),1);
+    Server s = new Server();
     Logger logger = Logger.getLogger(WikiSearcher.class.getName());
     @BeforeAll
     static void setUp() {
@@ -22,12 +21,12 @@ class WikiSearcherTest {
 
 
     @Test
-    void searchForwardMerge() {
+    void searchForwardMerge() throws QueryNodeException, IOException {
+        s.wikiSearcher.searchForwardMerge("google");
     }
 
     @Test
     void search() throws QueryNodeException, IOException {
-       logger.info( wikiSearcher.searchForwardMerge("google").toString());
 
     }
 }

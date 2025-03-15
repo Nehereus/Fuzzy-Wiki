@@ -20,7 +20,8 @@ public class Server {
      * the simplest implementation of the required APIs
      */
     Config config;
-    private WikiSearcher wikiSearcher;
+    //modified to protected for testing purposes
+    WikiSearcher wikiSearcher;
     private int port;
     private final Logger logger = Logger.getLogger(Server.class.getName());
 
