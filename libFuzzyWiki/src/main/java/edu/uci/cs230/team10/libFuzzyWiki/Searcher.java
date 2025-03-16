@@ -49,8 +49,11 @@ public class Searcher {
             return null;
         }else{
             Document d = reader.storedFields().document(hit[0].doc);
-            MyScoredDoc myScoredDoc = new MyScoredDoc(d.get("title"),0, d.get("originalText"));
-            return myScoredDoc;
+            if(d.get("title") != title) {
+                return null;
+            }
+
+            return new MyScoredDoc(d.get("title"),0, d.get("originalText"));
         }
     }
 
