@@ -168,7 +168,9 @@ public class WikiSearcher implements AutoCloseable {
                                 JSONObject jsonResponse = new JSONObject(response.getBodyText());
                                 future.complete(jsonResponse);
                             } catch (Exception e) {
-                                logger.severe("Error parsing response from " + finalUrl + ": " + e.getMessage());
+
+                                logger.severe("Error parsing response from " + finalUrl + ": " + e.getMessage() +
+                                        " Response: " + response.getBodyText());
                                 future.completeExceptionally(e);
                             }
                         }
@@ -265,7 +267,8 @@ public class WikiSearcher implements AutoCloseable {
                                 var temp = DocTermInfo.from(new JSONObject(response.getBodyText()));
                                 res.add(temp);
                             } catch (Exception e) {
-                                logger.severe("Error parsing response from " + finalUrl + ": " + e.getMessage());
+                                logger.severe("Error parsing response from " + finalUrl + ": " + e.getMessage()+
+                                        " Response: " + response.getBodyText());
                                 future.completeExceptionally(e);
                                 return;
                             }

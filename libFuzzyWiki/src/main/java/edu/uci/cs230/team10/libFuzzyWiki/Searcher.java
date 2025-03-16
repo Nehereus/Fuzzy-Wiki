@@ -14,10 +14,7 @@ import org.apache.lucene.store.FSDirectory;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class Searcher {
     private final IndexReader reader;
@@ -49,7 +46,8 @@ public class Searcher {
             return null;
         }else{
             Document d = reader.storedFields().document(hit[0].doc);
-            if(d.get("title") != title) {
+            if(!d.get("title").equals(title)) {
+                System.out.println("Error: title not found, only found: "+ d.get("title"));
                 return null;
             }
 

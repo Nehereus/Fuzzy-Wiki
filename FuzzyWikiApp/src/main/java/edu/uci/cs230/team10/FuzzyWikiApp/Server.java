@@ -49,18 +49,18 @@ public class Server {
             }
         } catch (Exception e) {
             e.printStackTrace();
-            ctx.result("Document not found");
+            ctx.result("Document "+ title+ " not found");
             ctx.status(404);
-            logger.warning("Document not found");
+            logger.warning("Document "+ title+ " not found");
         }
 
         if (!res.isEmpty()) {
             ctx.result(res.toString());
             ctx.status(200);
         } else {
-            ctx.result("Document not found");
+            ctx.result("Document "+ title+ " not found");
             ctx.status(404);
-            logger.warning("Document not found");
+            logger.warning("Document "+ title+ " not found");
         }
     }
 
