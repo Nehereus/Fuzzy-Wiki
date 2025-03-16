@@ -4,7 +4,6 @@ import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.index.StoredFields;
 import org.apache.lucene.queryparser.flexible.core.QueryNodeException;
 import org.apache.lucene.queryparser.flexible.standard.StandardQueryParser;
 import org.apache.lucene.search.IndexSearcher;
@@ -19,7 +18,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Logger;
 
 public class Searcher {
     private final IndexReader reader;
@@ -43,6 +41,19 @@ public class Searcher {
         }
     }
 
+    // function used to get the document by title without searching
+    public MyScoredDoc getByTitle(String title) throws IOException, QueryNodeException {
+        Query q = new StandardQueryParser(new StandardAnalyzer()).parse(title, "title");
+        ScoreDoc[] hit = iSearcher.search(q, 1).scoreDocs;
+        if(hit.length == 0) {
+            return null;
+        }else{
+            Document d = reader.storedFields().document(hit[0].doc);
+            MyScoredDoc myScoredDoc = new MyScoredDoc(d.get("title"),0, d.get("originalText"));
+            return myScoredDoc;
+        }
+    }
+
 
     public ScoreDoc[] search(String query) throws IOException, QueryNodeException {
         return search(query, 10);// default number of hits is 10
@@ -54,6 +65,8 @@ public class Searcher {
         Query q = parseQuery(query);
         return iSearcher.search(q, num).scoreDocs;
     }
+
+
 
     protected Query parseQuery(String query) throws QueryNodeException {
         Analyzer analyzer = new StandardAnalyzer();

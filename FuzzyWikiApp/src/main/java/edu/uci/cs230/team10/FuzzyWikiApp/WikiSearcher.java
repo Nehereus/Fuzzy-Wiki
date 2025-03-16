@@ -137,11 +137,101 @@ public class WikiSearcher implements AutoCloseable {
 
         return res;
     }
+    public JSONObject getArticleByTitleOrForward(String title) throws IOException, QueryNodeException {
+        // First, try to get the article locally
+        JSONObject localResult = getArticleByTitle(title);
+        if (!localResult.isEmpty()) {
+            return localResult;
+        }
+
+        // If not found locally, forward the request to remote nodes
+        List<CompletableFuture<JSONObject>> futuresList = selectedPeers.stream()
+                .map(node -> {
+                    URI url;
+                    try {
+                        url = new URI(String.format("http://%s/document/%s?forwarding=false",
+                                node.getAddr() + ":" + node.getPort(), URLEncoder.encode(title, StandardCharsets.UTF_8)));
+                    } catch (URISyntaxException e) {
+                        logger.severe("Invalid URI: " + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+
+                    SimpleHttpRequest request = new SimpleHttpRequest("GET", url);
+                    CompletableFuture<JSONObject> future = new CompletableFuture<>();
+
+                    URI finalUrl = url;
+                    httpClient.execute(request, new FutureCallback<>() {
+                        @Override
+                        public void completed(SimpleHttpResponse response) {
+                            logger.info("Response from " + finalUrl + ": " + response.getBody());
+                            try {
+                                JSONObject jsonResponse = new JSONObject(response.getBodyText());
+                                future.complete(jsonResponse);
+                            } catch (Exception e) {
+                                logger.severe("Error parsing response from " + finalUrl + ": " + e.getMessage());
+                                future.completeExceptionally(e);
+                            }
+                        }
+
+                        @Override
+                        public void failed(Exception ex) {
+                            logger.severe("Request to " + finalUrl + " failed: " + ex.getMessage());
+                            future.completeExceptionally(ex);
+                        }
+
+                        @Override
+                        public void cancelled() {
+                            logger.warning("Request to " + finalUrl + " was cancelled");
+                            future.cancel(true);
+                        }
+                    });
+
+                    return future;
+                })
+                .collect(Collectors.toList());
+
+        // Wait for all requests to complete and return the first non-empty result
+        for (CompletableFuture<JSONObject> future : futuresList) {
+            try {
+                JSONObject result = future.get();
+                if (!result.isEmpty()) {
+                    return result;
+                }
+            } catch (InterruptedException | ExecutionException e) {
+                logger.severe("Error waiting for requests to complete: " + e.getMessage());
+            }
+        }
+
+        // If no non-empty result is found, return an empty JSON object
+        return new JSONObject();
+    }
+
+    /*
+     * This function is used to get the document by title, if the document is not found in the local storage,
+     * it will search for the document in the index and return it. If not found in the local index, it will
+     * return an empty JSON object.
+     */
+
+    public JSONObject getArticleByTitle(String title) throws IOException, QueryNodeException {
+        JSONObject res = DocumentsStorage.getJson(title);
+        if (res == null) {
+            var tmep = searcher.getByTitle(title);
+            if (tmep != null) {
+                res = tmep.toJsonArticle();
+            } else {
+                res = new JSONObject();
+            }
+
+        }
+        return res;
+    }
+
     //the search function used for local search
     public DocTermInfo search(String query) throws IOException, QueryNodeException, RuntimeException {
         logger.info("Accepting task for query: " + query);
         long startTime = System.nanoTime();
         DocTermInfo res = searcher.searchForMerge(query);
+        DocumentsStorage.putAll(DocTermInfoHandler.mergeAndRank(Collections.singletonList(res)));
         int timeUsed = (int) ((System.nanoTime() - startTime) / 1_000_000);  // Convert to int (ms)
         res.setTimeUsed(timeUsed);
         return res;
