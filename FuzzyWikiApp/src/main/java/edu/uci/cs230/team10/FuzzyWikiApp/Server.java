@@ -10,6 +10,8 @@ import org.jetbrains.annotations.NotNull;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.logging.Logger;
@@ -37,7 +39,7 @@ public class Server {
     }
 
     private void documentHandler(@NotNull Context ctx) {
-        String title = ctx.pathParam("title");
+        String title = URLDecoder.decode(ctx.pathParam("title"), StandardCharsets.UTF_8);
         boolean forwarding = Boolean.parseBoolean(ctx.queryParam("forwarding"));
         logger.info("getting document for " + title);
         JSONObject res = new JSONObject();
