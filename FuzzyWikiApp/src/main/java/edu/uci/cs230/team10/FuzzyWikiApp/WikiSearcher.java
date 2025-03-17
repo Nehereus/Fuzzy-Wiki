@@ -49,6 +49,32 @@ public class WikiSearcher implements AutoCloseable {
         this.httpClient.start();
     }
 
+    // remove invalid documents from result
+    public void filerInvalidDocs(List<DocTermInfo> list) throws QueryNodeException, IOException {
+        // remove invalid documents
+        // First kind: text of document is "REDIRECT {title}"
+        // But the title is not exist in the indexing system
+        // We can search the title in the indexing system
+        // If the title is not exist, we can remove the document
+        for(DocTermInfo docTermInfo : list) {
+            List<String> toRemove = new ArrayList<>();
+            for(String title : docTermInfo.textMap.keySet()) {
+                if(docTermInfo.textMap.get(title).startsWith("REDIRECT")) {
+                    // remove the "REDIRECT " prefix
+                    String redirectTitle = docTermInfo.textMap.get(title).substring(9);
+                    if(this.getArticleByTitleOrForward(redirectTitle).isEmpty()) {
+                        toRemove.add(title);
+                    }
+                }
+            }
+            for(String title : toRemove) {
+                docTermInfo.textMap.remove(title);
+                docTermInfo.infoMap.remove(title);
+            }
+        }
+
+    }
+
     //a meta search function that search locally, forward requests, and merges the search results from all nodes and ranks them
     public List<JSONObject> searchForwardMerge(String query) throws IOException, QueryNodeException,CompletionException {
         long startTime = System.nanoTime();
@@ -76,7 +102,7 @@ public class WikiSearcher implements AutoCloseable {
             List<DocTermInfo> forwardRes = forwardSearchFuture.getNow(Collections.emptyList());
             forwardRes.add(localRes);
             int searchTime = (int) ((System.nanoTime() - startTime) / 1_000_000);
-
+            filerInvalidDocs(forwardRes);   // remove invalid documents
             startTime = System.nanoTime();
             List<MyScoredDoc> res = DocTermInfoHandler.mergeAndRank(forwardRes);
             DocumentsStorage.putAll(res);
@@ -137,6 +163,7 @@ public class WikiSearcher implements AutoCloseable {
 
         return res;
     }
+
     public JSONObject getArticleByTitleOrForward(String title) throws IOException, QueryNodeException {
         // First, try to get the article locally
         JSONObject localResult = getArticleByTitle(title);
@@ -227,6 +254,8 @@ public class WikiSearcher implements AutoCloseable {
         }
         return res;
     }
+
+
 
     //the search function used for local search
     public DocTermInfo search(String query) throws IOException, QueryNodeException, RuntimeException {
