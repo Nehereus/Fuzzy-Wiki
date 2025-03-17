@@ -53,7 +53,7 @@ public class Searcher {
         }else{
             Document d = reader.storedFields().document(hit[0].doc);
             if(!d.get("title").equals(title)) {
-                logger.warning("Error: title " + title+ " not found, only found: "+ d.get("title"));
+                logger.warning("Title " + title+ " not found, only found: "+ d.get("title"));
                 return null;
             }
 
