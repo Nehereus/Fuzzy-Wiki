@@ -15,10 +15,13 @@ import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 
+import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.queryparser.flexible.core.QueryNodeException;
 import org.json.JSONObject;
 
@@ -47,15 +50,92 @@ public class WikiSearcher implements AutoCloseable {
         this.httpClient.start();
     }
 
+    // remove invalid documents from result
+    private void filerInvalidDocs(List<DocTermInfo> list) {
+        // remove invalid documents
+        // First kind: text of document is "REDIRECT {title}"
+        // But the title is not exist in the indexing system
+        // We can search the title in the indexing system
+        // If the title is not exist, we can remove the document
+        for(DocTermInfo docTermInfo : list) {
+            List<String> toRemove = new ArrayList<>();
+            for(String title : docTermInfo.textMap.keySet()) {
+                if(docTermInfo.textMap.get(title).toUpperCase().startsWith("REDIRECT")) {
+                    // remove the "REDIRECT " prefix
+                    String redirectTitle = docTermInfo.textMap.get(title).substring(9);
+                    // in case some pages are not pure redirect pages
+                    // no document has a title longer than 50 characters, right?
+                    //System.out.println("Searching for redirect title: " + redirectTitle);
+                    try {
+                        if(redirectTitle.length()<50&&this.getArticleByTitleOrForward(QueryParser.escape(redirectTitle)).isEmpty()) {
+                            toRemove.add(title);
+                        }
+                    } catch (Exception e) {
+                        logger.warning("Error searching for redirect title: " + redirectTitle);
+                        toRemove.add(title);
+                    }
+                }
+            }
+            for(String title : toRemove) {
+                logger.info("Removing invalid document: " + title);
+                docTermInfo.textMap.remove(title);
+                docTermInfo.infoMap.remove(title);
+            }
+        }
+
+    }
+
     //a meta search function that search locally, forward requests, and merges the search results from all nodes and ranks them
-    public List<JSONObject> searchForwardMerge(String query) throws IOException, QueryNodeException {
-        DocTermInfo localRes = search(query);
-        // needs to come up with an algorithm to select the nodes based on the index shards they held to achieve full index coverage
-       List<DocTermInfo> forwardRes = forward(query, selectedPeers);
-       forwardRes.add(localRes);
-       List<MyScoredDoc> res = DocTermInfoHandler.mergeAndRank(forwardRes);
-       DocumentsStorage.putAll(res);
-       return res.stream().map(MyScoredDoc::toJsonPreview).collect(Collectors.toList());
+    public List<JSONObject> searchForwardMerge(String query) throws IOException, QueryNodeException,CompletionException {
+        long startTime = System.nanoTime();
+        CompletableFuture<DocTermInfo> localSearchFuture = CompletableFuture.supplyAsync(() -> {
+            try {
+                return search(query);
+            } catch (IOException | QueryNodeException e) {
+                throw new CompletionException(e);
+            }
+        });
+
+        CompletableFuture<List<DocTermInfo>> forwardSearchFuture = CompletableFuture.supplyAsync(() -> {
+            try {
+                return forward(query, selectedPeers);
+            } catch (RuntimeException e) {
+                throw new CompletionException(e);
+            }
+        });
+
+        CompletableFuture<Void> allFutures = CompletableFuture.allOf(localSearchFuture, forwardSearchFuture);
+
+        try {
+            allFutures.join();
+            DocTermInfo localRes = localSearchFuture.getNow(null);
+            List<DocTermInfo> forwardRes = forwardSearchFuture.getNow(Collections.emptyList());
+            forwardRes.add(localRes);
+            int searchTime = (int) ((System.nanoTime() - startTime) / 1_000_000);
+            filerInvalidDocs(forwardRes);   // remove invalid documents
+            startTime = System.nanoTime();
+            List<MyScoredDoc> res = DocTermInfoHandler.mergeAndRank(forwardRes);
+            DocumentsStorage.putAll(res);
+            List<JSONObject> jsonRes = res.stream()
+                    .map(MyScoredDoc::toJsonPreview)
+                    .collect(Collectors.toList());
+            int mergeTime = (int) ((System.nanoTime() - startTime) / 1_000_000);
+            jsonRes.add(new JSONObject()
+                    .put("totalTimeUsed", searchTime + mergeTime).
+                    put("searchTimeUsed", searchTime).
+                    put("mergeTimeUsed", mergeTime));
+
+            return jsonRes;
+        } catch (CompletionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof IOException) {
+                throw (IOException) cause;
+            } else if (cause instanceof QueryNodeException) {
+                throw (QueryNodeException) cause;
+            } else {
+                throw e;
+            }
+        }
     }
 
     //This is essentially set cover problem, which is NP-hard, but considering the rarity
@@ -93,10 +173,112 @@ public class WikiSearcher implements AutoCloseable {
 
         return res;
     }
+
+    public JSONObject getArticleByTitleOrForward(String title) throws IOException, QueryNodeException {
+        // First, try to get the article locally
+        JSONObject localResult = getArticleByTitle(title);
+        if (!localResult.isEmpty()) {
+            return localResult;
+        }
+
+        // If not found locally, forward the request to remote nodes
+        List<CompletableFuture<JSONObject>> futuresList = selectedPeers.stream()
+                .map(node -> {
+                    URI url;
+                    try {
+                        url = new URI(String.format("http://%s/document/%s?forwarding=false",
+                                node.getAddr() + ":" + node.getPort(), URLEncoder.encode(title, StandardCharsets.UTF_8)));
+                    } catch (URISyntaxException e) {
+                        logger.severe("Invalid URI: " + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+
+                    SimpleHttpRequest request = new SimpleHttpRequest("GET", url);
+                    CompletableFuture<JSONObject> future = new CompletableFuture<>();
+
+                    URI finalUrl = url;
+                    httpClient.execute(request, new FutureCallback<>() {
+
+                        @Override
+                        public void completed(SimpleHttpResponse response) {
+                            if(response.getCode() < 200||
+                                    response.getCode() >= 300 ) {
+                                logger.info("Documents not found in remote with url: " + finalUrl + ", status: " + response.getCode());
+                                return;
+                            }
+
+                            try {
+                                JSONObject jsonResponse = new JSONObject(response.getBodyText());
+                                future.complete(jsonResponse);
+                            } catch (Exception e) {
+                                logger.severe("Error parsing response from " + finalUrl + ": " + e.getMessage() +
+                                        " Response: " + response.getBodyText());
+                                future.completeExceptionally(e);
+                            }
+                        }
+
+                        @Override
+                        public void failed(Exception ex) {
+                            logger.severe("Request to " + finalUrl + " failed: " + ex.getMessage());
+                            future.completeExceptionally(ex);
+                        }
+
+                        @Override
+                        public void cancelled() {
+                            logger.warning("Request to " + finalUrl + " was cancelled");
+                            future.cancel(true);
+                        }
+                    });
+
+                    return future;
+                })
+                .collect(Collectors.toList());
+
+        // Wait for all requests to complete and return the first non-empty result
+        for (CompletableFuture<JSONObject> future : futuresList) {
+            try {
+                JSONObject result = future.get();
+                if (!result.isEmpty()) {
+                    return result;
+                }
+            } catch (InterruptedException | ExecutionException e) {
+                logger.severe("Error waiting for requests to complete: " + e.getMessage());
+            }
+        }
+
+        // If no non-empty result is found, return an empty JSON object
+        return new JSONObject();
+    }
+
+    /*
+     * This function is used to get the document by title, if the document is not found in the local storage,
+     * it will search for the document in the index and return it. If not found in the local index, it will
+     * return an empty JSON object.
+     */
+
+    public JSONObject getArticleByTitle(String title) throws IOException, QueryNodeException {
+        JSONObject res = DocumentsStorage.getJson(title);
+        if (res == null) {
+            var tmep = searcher.getByTitle(title);
+            if (tmep != null) {
+                res = tmep.toJsonArticle();
+            } else {
+                res = new JSONObject();
+            }
+
+        }
+        return res;
+    }
+
     //the search function used for local search
     public DocTermInfo search(String query) throws IOException, QueryNodeException, RuntimeException {
         logger.info("Accepting task for query: " + query);
-        return searcher.searchForMerge(query);
+        long startTime = System.nanoTime();
+        DocTermInfo res = searcher.searchForMerge(query);
+        DocumentsStorage.putAll(DocTermInfoHandler.mergeAndRank(Collections.singletonList(res)));
+        int timeUsed = (int) ((System.nanoTime() - startTime) / 1_000_000);  // Convert to int (ms)
+        res.setTimeUsed(timeUsed);
+        return res;
     }
 
     private List<DocTermInfo> forward(String query, List<Node> nodes) {
@@ -122,12 +304,18 @@ public class WikiSearcher implements AutoCloseable {
                         // the search api should return a json object representing a DocTermInfo object
                         @Override
                         public void completed(SimpleHttpResponse response) {
-                            logger.info("Response from " + finalUrl + ": " + response.getBody());
+                            if(response.getCode() < 200||
+                                    response.getCode() >= 300 ) {
+                                logger.info("Documents not found in remote with url: " + finalUrl + ", status: " + response.getCode());
+                                return;
+                            }
+
                             try {
                                 var temp = DocTermInfo.from(new JSONObject(response.getBodyText()));
                                 res.add(temp);
                             } catch (Exception e) {
-                                logger.severe("Error parsing response from " + finalUrl + ": " + e.getMessage());
+                                logger.severe("Error parsing response from " + finalUrl + ": " + e.getMessage()+
+                                        " Response: " + response.getBodyText());
                                 future.completeExceptionally(e);
                                 return;
                             }

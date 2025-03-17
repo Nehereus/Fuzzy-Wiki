@@ -13,7 +13,6 @@ import java.util.logging.Logger;
 
 public class Parser extends Mapper<Object, Text, Text, Text> {
     private static final int MAX_TOKEN_LENGTH = 32766;
-    private final Logger log = Logger.getLogger(Parser.class.getName());
     //a special token to indicate the start of the origin text;
     private final static String ORIGIN_TOKEN="@origin@";
 
@@ -31,7 +30,7 @@ public class Parser extends Mapper<Object, Text, Text, Text> {
                 for (String token : tokens) {
                     context.write(new Text(title), new Text(token));
                 }
-               context.write(new Text(title), new Text(new StringBuilder(ORIGIN_TOKEN).append(text).toString()));
+               context.write(new Text(title), new Text(ORIGIN_TOKEN + text));
 
             } else {
                 context.getCounter("ParserErrors", "MissingFields").increment(1);
