@@ -64,6 +64,7 @@ public class WikiSearcher implements AutoCloseable {
                     String redirectTitle = docTermInfo.textMap.get(title).substring(9);
                     // in case some pages are not pure redirect pages
                     // no document has a title longer than 50 characters, right?
+                    System.out.println("Searching for redirect title: " + redirectTitle);
                     if(redirectTitle.length()<50&&this.getArticleByTitleOrForward(redirectTitle).isEmpty()) {
                         toRemove.add(title);
                     }
