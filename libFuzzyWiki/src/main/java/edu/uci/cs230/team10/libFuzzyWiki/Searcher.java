@@ -15,12 +15,13 @@ import org.apache.lucene.store.FSDirectory;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.logging.Logger;
 
 public class Searcher {
     private final IndexReader reader;
     private final MyBM25Similarity mySimilarity;
     private final IndexSearcher iSearcher;
-
+    Logger logger = Logger.getLogger(Searcher.class.getName());
 
     public void clearSearchResultMap() {
         mySimilarity.clearSearchResultMap();
@@ -39,6 +40,11 @@ public class Searcher {
     }
 
     // function used to get the document by title without searching
+    /**
+     * @param title the title of the document
+     * @return the document with the given title, or null if not found
+     * @throws IOException
+     */
     public MyScoredDoc getByTitle(String title) throws IOException, QueryNodeException {
         Query q = new StandardQueryParser(new StandardAnalyzer()).parse(title, "title");
         ScoreDoc[] hit = iSearcher.search(q, 1).scoreDocs;
@@ -47,7 +53,7 @@ public class Searcher {
         }else{
             Document d = reader.storedFields().document(hit[0].doc);
             if(!d.get("title").equals(title)) {
-                System.out.println("Error: title not found, only found: "+ d.get("title"));
+                logger.warning("Error: title " + title+ " not found, only found: "+ d.get("title"));
                 return null;
             }
 

@@ -51,7 +51,7 @@ public class WikiSearcher implements AutoCloseable {
     }
 
     // remove invalid documents from result
-    public void filerInvalidDocs(List<DocTermInfo> list) {
+    private void filerInvalidDocs(List<DocTermInfo> list) {
         // remove invalid documents
         // First kind: text of document is "REDIRECT {title}"
         // But the title is not exist in the indexing system
@@ -60,7 +60,7 @@ public class WikiSearcher implements AutoCloseable {
         for(DocTermInfo docTermInfo : list) {
             List<String> toRemove = new ArrayList<>();
             for(String title : docTermInfo.textMap.keySet()) {
-                if(docTermInfo.textMap.get(title).startsWith("REDIRECT")) {
+                if(docTermInfo.textMap.get(title).toUpperCase().startsWith("REDIRECT")) {
                     // remove the "REDIRECT " prefix
                     String redirectTitle = docTermInfo.textMap.get(title).substring(9);
                     // in case some pages are not pure redirect pages
@@ -198,14 +198,19 @@ public class WikiSearcher implements AutoCloseable {
 
                     URI finalUrl = url;
                     httpClient.execute(request, new FutureCallback<>() {
+
                         @Override
                         public void completed(SimpleHttpResponse response) {
-                            logger.info("Response from " + finalUrl + ": " + response.getBody());
+                            if(response.getCode() < 200||
+                                    response.getCode() >= 300 ) {
+                                logger.info("Documents not found in remote with url: " + finalUrl + ", status: " + response.getCode());
+                                return;
+                            }
+
                             try {
                                 JSONObject jsonResponse = new JSONObject(response.getBodyText());
                                 future.complete(jsonResponse);
                             } catch (Exception e) {
-
                                 logger.severe("Error parsing response from " + finalUrl + ": " + e.getMessage() +
                                         " Response: " + response.getBodyText());
                                 future.completeExceptionally(e);
@@ -265,8 +270,6 @@ public class WikiSearcher implements AutoCloseable {
         return res;
     }
 
-
-
     //the search function used for local search
     public DocTermInfo search(String query) throws IOException, QueryNodeException, RuntimeException {
         logger.info("Accepting task for query: " + query);
@@ -301,7 +304,12 @@ public class WikiSearcher implements AutoCloseable {
                         // the search api should return a json object representing a DocTermInfo object
                         @Override
                         public void completed(SimpleHttpResponse response) {
-                            logger.info("Response from " + finalUrl + ": " + response.getBody());
+                            if(response.getCode() < 200||
+                                    response.getCode() >= 300 ) {
+                                logger.info("Documents not found in remote with url: " + finalUrl + ", status: " + response.getCode());
+                                return;
+                            }
+
                             try {
                                 var temp = DocTermInfo.from(new JSONObject(response.getBodyText()));
                                 res.add(temp);
