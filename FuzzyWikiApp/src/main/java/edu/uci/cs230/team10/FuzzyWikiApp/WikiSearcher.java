@@ -77,6 +77,7 @@ public class WikiSearcher implements AutoCloseable {
                 }
             }
             for(String title : toRemove) {
+                logger.info("Removing invalid document: " + title);
                 docTermInfo.textMap.remove(title);
                 docTermInfo.infoMap.remove(title);
             }
