@@ -14,9 +14,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -50,36 +48,49 @@ public class WikiSearcher implements AutoCloseable {
         this.httpClient.start();
     }
 
-    // remove invalid documents from result
-    private void filerInvalidDocs(List<DocTermInfo> list) {
-        // remove invalid documents
-        // First kind: text of document is "REDIRECT {title}"
-        // But the title is not exist in the indexing system
-        // We can search the title in the indexing system
-        // If the title is not exist, we can remove the document
+    private void filterInvalidDocs(List<DocTermInfo> list) {
+        // remove following invalid documents:
+        // 1. text of document is "REDIRECT {title}"
+        // 2. title without an actual article associated with it
+        // search the title in the indexing system
+        // If the title does not exist, remove it from the list
         for(DocTermInfo docTermInfo : list) {
             List<String> toRemove = new ArrayList<>();
+            List<String> toSearch = new ArrayList<>();
+            Map<String, String> redirectionTitleMap = new HashMap<>();
+
             for(String title : docTermInfo.textMap.keySet()) {
+                toSearch.add(title);
                 if(docTermInfo.textMap.get(title).toUpperCase().startsWith("REDIRECT")) {
-                    // remove the "REDIRECT " prefix
-                    String redirectTitle = docTermInfo.textMap.get(title).substring(9);
-                    // in case some pages are not pure redirect pages
-                    // no document has a title longer than 50 characters, right?
-                    //System.out.println("Searching for redirect title: " + redirectTitle);
+                    String redirectionTitle = docTermInfo.textMap.get(title).substring(9).trim();
+                    toSearch.add(redirectionTitle);
+                    redirectionTitleMap.put(redirectionTitle,title);
+                }
+            }
+
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
+            for (String title : toSearch) {
+                futures.add(CompletableFuture.runAsync(() -> {
                     try {
-                        if(redirectTitle.length()<50&&this.getArticleByTitleOrForward(QueryParser.escape(redirectTitle)).isEmpty()) {
+                        if (title.length() < 50 &&
+                                this.getArticleByTitleOrForward(QueryParser.escape(title)).isEmpty()) {
                             toRemove.add(title);
                         }
                     } catch (Exception e) {
-                        logger.warning("Error searching for redirect title: " + redirectTitle);
+                        // in case of bugs
+                        logger.warning("Error searching for title: " + title);
                         toRemove.add(title);
                     }
-                }
+                }));
             }
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
             for(String title : toRemove) {
-                logger.info("Removing invalid document: " + title);
-                docTermInfo.textMap.remove(title);
-                docTermInfo.infoMap.remove(title);
+                //assume the article to be redirected to cannot share the same title with the original article
+                String tempTitle = redirectionTitleMap.getOrDefault(title, title);
+                logger.info("Removing invalid document: " + tempTitle);
+                docTermInfo.textMap.remove(tempTitle);
+                docTermInfo.infoMap.remove(tempTitle);
             }
         }
 
@@ -112,8 +123,8 @@ public class WikiSearcher implements AutoCloseable {
             List<DocTermInfo> forwardRes = forwardSearchFuture.getNow(Collections.emptyList());
             forwardRes.add(localRes);
             int searchTime = (int) ((System.nanoTime() - startTime) / 1_000_000);
-            filerInvalidDocs(forwardRes);   // remove invalid documents
             startTime = System.nanoTime();
+            filterInvalidDocs(forwardRes);   // remove invalid documents
             List<MyScoredDoc> res = DocTermInfoHandler.mergeAndRank(forwardRes);
             DocumentsStorage.putAll(res);
             List<JSONObject> jsonRes = res.stream()
@@ -204,17 +215,18 @@ public class WikiSearcher implements AutoCloseable {
                             if(response.getCode() < 200||
                                     response.getCode() >= 300 ) {
                                 logger.info("Documents not found in remote with url: " + finalUrl + ", status: " + response.getCode());
-                                return;
+                                future.completeExceptionally(new RuntimeException("Request with status code: " + response.getCode()));
+                            }else{
+                                try {
+                                    JSONObject jsonResponse = new JSONObject(response.getBodyText());
+                                    future.complete(jsonResponse);
+                                } catch (Exception e) {
+                                    logger.severe("Error parsing response from " + finalUrl + ": " + e.getMessage() +
+                                            " Response: " + response.getBodyText());
+                                    future.completeExceptionally(e);
+                                }
                             }
 
-                            try {
-                                JSONObject jsonResponse = new JSONObject(response.getBodyText());
-                                future.complete(jsonResponse);
-                            } catch (Exception e) {
-                                logger.severe("Error parsing response from " + finalUrl + ": " + e.getMessage() +
-                                        " Response: " + response.getBodyText());
-                                future.completeExceptionally(e);
-                            }
                         }
 
                         @Override
@@ -259,9 +271,10 @@ public class WikiSearcher implements AutoCloseable {
     public JSONObject getArticleByTitle(String title) throws IOException, QueryNodeException {
         JSONObject res = DocumentsStorage.getJson(title);
         if (res == null) {
-            var tmep = searcher.getByTitle(title);
-            if (tmep != null) {
-                res = tmep.toJsonArticle();
+            MyScoredDoc temp = searcher.getByTitle(title);
+            if (temp != null) {
+                DocumentsStorage.put(temp);
+                res = temp.toJsonArticle();
             } else {
                 res = new JSONObject();
             }
@@ -304,22 +317,22 @@ public class WikiSearcher implements AutoCloseable {
                         // the search api should return a json object representing a DocTermInfo object
                         @Override
                         public void completed(SimpleHttpResponse response) {
-                            if(response.getCode() < 200||
-                                    response.getCode() >= 300 ) {
+                            if (response.getCode() < 200 ||
+                                    response.getCode() >= 300) {
                                 logger.info("Documents not found in remote with url: " + finalUrl + ", status: " + response.getCode());
-                                return;
+                                future.completeExceptionally(new RuntimeException("Failed with status code: " + response.getCode()));
+                            } else {
+                                try {
+                                    var temp = DocTermInfo.from(new JSONObject(response.getBodyText()));
+                                    res.add(temp);
+                                } catch (Exception e) {
+                                    logger.severe("Error parsing response from " + finalUrl + ": " + e.getMessage() +
+                                            " Response: " + response.getBodyText());
+                                    future.completeExceptionally(e);
+                                    return;
+                                }
+                                future.complete(null);
                             }
-
-                            try {
-                                var temp = DocTermInfo.from(new JSONObject(response.getBodyText()));
-                                res.add(temp);
-                            } catch (Exception e) {
-                                logger.severe("Error parsing response from " + finalUrl + ": " + e.getMessage()+
-                                        " Response: " + response.getBodyText());
-                                future.completeExceptionally(e);
-                                return;
-                            }
-                            future.complete(null);
                         }
 
                         @Override

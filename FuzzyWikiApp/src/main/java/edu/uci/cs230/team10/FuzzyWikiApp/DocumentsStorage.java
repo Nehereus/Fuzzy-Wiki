@@ -10,18 +10,9 @@ public final class DocumentsStorage {
     // A extremely simple implementation of "DB" for storing title-original_text pairs
 
     private final static Map<String, String> titleTextMap = new HashMap<>();
-    /**
-     * put a document's original text into the storage
-     * @param title the title of the document
-     * @param text the text of the document
-     * @return whether there is already a document with the same title
-     */
-    public static boolean put(String title, String text) {
-        if (titleTextMap.containsKey(title)) {
-            return false;
-        }
-        titleTextMap.put(title, text);
-        return true;
+
+    public static void put(MyScoredDoc doc) {
+        titleTextMap.put(doc.title, doc.text);
     }
 
     /**
@@ -42,7 +33,9 @@ public final class DocumentsStorage {
 
     public static void putAll(List<MyScoredDoc> docs) {
         for (MyScoredDoc doc : docs) {
-            titleTextMap.put(doc.title, doc.text);
+            put(doc);
         }
     }
+
+
 }
