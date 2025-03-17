@@ -50,7 +50,7 @@ public class WikiSearcher implements AutoCloseable {
     }
 
     // remove invalid documents from result
-    public void filerInvalidDocs(List<DocTermInfo> list) throws QueryNodeException, IOException {
+    public void filerInvalidDocs(List<DocTermInfo> list) {
         // remove invalid documents
         // First kind: text of document is "REDIRECT {title}"
         // But the title is not exist in the indexing system
@@ -64,9 +64,14 @@ public class WikiSearcher implements AutoCloseable {
                     String redirectTitle = docTermInfo.textMap.get(title).substring(9);
                     // in case some pages are not pure redirect pages
                     // no document has a title longer than 50 characters, right?
-                    System.out.println("Searching for redirect title: " + redirectTitle);
-                    if(redirectTitle.length()<50&&this.getArticleByTitleOrForward(redirectTitle).isEmpty()) {
-                        toRemove.add(title);
+                    //System.out.println("Searching for redirect title: " + redirectTitle);
+                    try {
+                        if(redirectTitle.length()<50&&this.getArticleByTitleOrForward(redirectTitle).isEmpty()) {
+                            toRemove.add(title);
+                        }
+                    } catch (Exception e) {
+                        logger.warning("Error searching for redirect title: " + redirectTitle);
+                        //toRemove.add(title);
                     }
                 }
             }
