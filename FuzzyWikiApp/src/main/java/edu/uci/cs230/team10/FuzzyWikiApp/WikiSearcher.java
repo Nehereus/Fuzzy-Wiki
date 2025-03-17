@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 
+import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.queryparser.flexible.core.QueryNodeException;
 import org.json.JSONObject;
 
@@ -66,12 +67,12 @@ public class WikiSearcher implements AutoCloseable {
                     // no document has a title longer than 50 characters, right?
                     //System.out.println("Searching for redirect title: " + redirectTitle);
                     try {
-                        if(redirectTitle.length()<50&&this.getArticleByTitleOrForward(redirectTitle).isEmpty()) {
+                        if(redirectTitle.length()<50&&this.getArticleByTitleOrForward(QueryParser.escape(redirectTitle)).isEmpty()) {
                             toRemove.add(title);
                         }
                     } catch (Exception e) {
                         logger.warning("Error searching for redirect title: " + redirectTitle);
-                        //toRemove.add(title);
+                        toRemove.add(title);
                     }
                 }
             }
