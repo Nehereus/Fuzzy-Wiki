@@ -99,6 +99,14 @@ public class WikiSearcher implements AutoCloseable {
     //a meta search function that search locally, forward requests, and merges the search results from all nodes and ranks them
     public List<JSONObject> searchForwardMerge(String query) throws IOException, QueryNodeException,CompletionException {
         long startTime = System.nanoTime();
+        int searchTime;
+
+        List<MyScoredDoc> res;
+        //checking caching
+        if (Cache.contains(query)) {
+             res = Cache.get(query);
+            searchTime = (int) ((System.nanoTime() - startTime) / 1_000_000);
+        } else {
         CompletableFuture<DocTermInfo> localSearchFuture = CompletableFuture.supplyAsync(() -> {
             try {
                 return search(query);
@@ -118,35 +126,39 @@ public class WikiSearcher implements AutoCloseable {
         CompletableFuture<Void> allFutures = CompletableFuture.allOf(localSearchFuture, forwardSearchFuture);
 
         try {
+            //searching
             allFutures.join();
             DocTermInfo localRes = localSearchFuture.getNow(null);
             List<DocTermInfo> forwardRes = forwardSearchFuture.getNow(Collections.emptyList());
             forwardRes.add(localRes);
-            int searchTime = (int) ((System.nanoTime() - startTime) / 1_000_000);
-            startTime = System.nanoTime();
-            filterInvalidDocs(forwardRes);   // remove invalid documents
-            List<MyScoredDoc> res = DocTermInfoHandler.mergeAndRank(forwardRes);
-            DocumentsStorage.putAll(res);
-            List<JSONObject> jsonRes = res.stream()
-                    .map(MyScoredDoc::toJsonPreview)
-                    .collect(Collectors.toList());
-            int mergeTime = (int) ((System.nanoTime() - startTime) / 1_000_000);
-            jsonRes.add(new JSONObject()
-                    .put("totalTimeUsed", searchTime + mergeTime).
-                    put("searchTimeUsed", searchTime).
-                    put("mergeTimeUsed", mergeTime));
 
-            return jsonRes;
+            //filtering and merging
+            searchTime = (int) ((System.nanoTime() - startTime) / 1_000_000);
+            filterInvalidDocs(forwardRes);   // remove invalid documents
+            res = DocTermInfoHandler.mergeAndRank(forwardRes);
+            Cache.put(query, res);
+            DocumentsStorage.putAll(res);
         } catch (CompletionException e) {
             Throwable cause = e.getCause();
             if (cause instanceof IOException) {
                 throw (IOException) cause;
             } else if (cause instanceof QueryNodeException) {
                 throw (QueryNodeException) cause;
-            } else {
-                throw e;
             }
+            return Collections.emptyList();
         }
+    }
+        List<JSONObject> jsonRes = res.stream()
+                .map(MyScoredDoc::toJsonPreview)
+                .collect(Collectors.toList());
+        int mergeTime = (int) ((System.nanoTime() - startTime) / 1_000_000);
+
+        jsonRes.add(new JSONObject()
+                .put("totalTimeUsed", searchTime + mergeTime).
+                put("searchTimeUsed", searchTime).
+                put("mergeTimeUsed", mergeTime));
+
+        return jsonRes;
     }
 
     //This is essentially set cover problem, which is NP-hard, but considering the rarity
@@ -186,7 +198,7 @@ public class WikiSearcher implements AutoCloseable {
     }
 
     public JSONObject getArticleByTitleOrForward(String title) throws IOException, QueryNodeException {
-        // First, try to get the article locally
+        // Try to get the article locally
         JSONObject localResult = getArticleByTitle(title);
         if (!localResult.isEmpty()) {
             return localResult;
