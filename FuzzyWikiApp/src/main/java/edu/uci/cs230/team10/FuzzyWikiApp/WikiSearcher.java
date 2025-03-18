@@ -60,11 +60,16 @@ public class WikiSearcher implements AutoCloseable {
             Map<String, String> redirectionTitleMap = new HashMap<>();
 
             for(String title : docTermInfo.textMap.keySet()) {
-                toSearch.add(title);
-                if(docTermInfo.textMap.get(title).toUpperCase().startsWith("REDIRECT")) {
-                    String redirectionTitle = docTermInfo.textMap.get(title).substring(9).trim();
-                    toSearch.add(redirectionTitle);
-                    redirectionTitleMap.put(redirectionTitle,title);
+                String text = docTermInfo.textMap.get(title);
+                if(text!=null){
+                    toSearch.add(title);
+                    if(text.toUpperCase().startsWith("REDIRECT")) {
+                        String redirectionTitle = docTermInfo.textMap.get(title).substring(9).trim();
+                        toSearch.add(redirectionTitle);
+                        redirectionTitleMap.put(redirectionTitle,title);
+                    }
+                }else{
+                    toRemove.add(title);
                 }
             }
 
