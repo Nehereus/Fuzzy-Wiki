@@ -15,6 +15,7 @@ import org.apache.lucene.store.FSDirectory;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class Searcher {
@@ -28,6 +29,7 @@ public class Searcher {
     }
 
     public Searcher(Path mainIndexPath) {
+        logger.setLevel(Level.WARNING);
         try {
             Directory directory = FSDirectory.open(mainIndexPath);
             this.reader = DirectoryReader.open(directory);
@@ -43,7 +45,6 @@ public class Searcher {
     /**
      * @param title the title of the document
      * @return the document with the given title, or null if not found
-     * @throws IOException
      */
     public MyScoredDoc getByTitle(String title) throws IOException, QueryNodeException {
         Query q = new StandardQueryParser(new StandardAnalyzer()).parse(title, "title");
@@ -53,7 +54,7 @@ public class Searcher {
         }else{
             Document d = reader.storedFields().document(hit[0].doc);
             if(!d.get("title").equals(title)) {
-                logger.warning("Title " + title+ " not found, only found: "+ d.get("title"));
+                logger.info("Title " + title+ " not found, only found: "+ d.get("title"));
                 return null;
             }
 

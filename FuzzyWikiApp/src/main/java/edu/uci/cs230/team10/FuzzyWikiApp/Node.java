@@ -31,4 +31,8 @@ public class Node {
         this.shards = shards;
         this.port = port;
     }
+    @Override
+    public String toString() {
+        return this.name;
+    }
 }
