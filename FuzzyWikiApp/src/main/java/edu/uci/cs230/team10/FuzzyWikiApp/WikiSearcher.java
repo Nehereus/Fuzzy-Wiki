@@ -3,8 +3,10 @@ import edu.uci.cs230.team10.libFuzzyWiki.DocTermInfo;
 import edu.uci.cs230.team10.libFuzzyWiki.DocTermInfoHandler;
 import edu.uci.cs230.team10.libFuzzyWiki.MyScoredDoc;
 import edu.uci.cs230.team10.libFuzzyWiki.Searcher;
+import org.apache.hc.client5.http.ConnectTimeoutException;
 import org.apache.hc.client5.http.async.methods.SimpleHttpRequest;
 import org.apache.hc.client5.http.async.methods.SimpleHttpResponse;
+import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
 import org.apache.hc.client5.http.impl.async.HttpAsyncClients;
 import org.apache.hc.core5.concurrent.FutureCallback;
@@ -19,16 +21,20 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 
+import org.apache.hc.core5.util.Timeout;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.queryparser.flexible.core.QueryNodeException;
 import org.json.JSONObject;
 
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class WikiSearcher implements AutoCloseable {
-    private final List<Node> selectedPeers;
+    private List<Node> selectedPeers;
+    private final List<Node> peers;
+    private final List<Integer> shards;
     private final Node node;
     private final Searcher searcher;
     private final CloseableHttpAsyncClient httpClient;
@@ -41,10 +47,19 @@ public class WikiSearcher implements AutoCloseable {
      * @param peers the list of peer nodes except the host itself
      */
     public WikiSearcher(Searcher searcher,Node node, List<Node> peers, int totalShards) {
+        logger.setLevel(Level.WARNING);
         this.node = node;
-        this.selectedPeers = selectPeers(peers, totalShards);
+        this.peers = peers;
+        this.shards =  IntStream.range(0, totalShards)
+                .boxed()
+                .collect(Collectors.toList());
+        this.selectedPeers = selectPeers(peers, this.shards);
         this.searcher = searcher;
-        this.httpClient = HttpAsyncClients.createDefault();
+        this.httpClient = HttpAsyncClients.custom()
+                .setDefaultRequestConfig(RequestConfig.custom()
+                        .setResponseTimeout(Timeout.ofSeconds(1)) // Set the timeout to 10 seconds
+                        .build())
+                .build();
         this.httpClient.start();
     }
 
@@ -168,11 +183,9 @@ public class WikiSearcher implements AutoCloseable {
 
     //This is essentially set cover problem, which is NP-hard, but considering the rarity
     //of the case where the number of shards is large, we use brute force to solve the problem
-    private List<Node> selectPeers(List<Node> peers, int totalShards) {
+    private List<Node> selectPeers(List<Node> peers, List<Integer> shards) {
         List<Node> res = new ArrayList<>();
-        List<Integer> remainingShards = IntStream.range(0, totalShards)
-                .boxed()
-                .collect(Collectors.toList());
+        List<Integer> remainingShards = new ArrayList<>(shards);
         remainingShards.removeAll(node.getShards());
         while (!remainingShards.isEmpty()) {
             Node bestPeer = null;
@@ -192,7 +205,7 @@ public class WikiSearcher implements AutoCloseable {
             if (bestPeer != null) {
                 remainingShards.removeAll(bestPeer.getShards());
                 res.add(bestPeer);
-                logger.info("selecting peer: " + bestPeer.getName());
+                logger.warning("selecting peer: " + bestPeer.getName());
             } else {
                 logger.warning("No peer can cover the remaining shards, check the shards configuration");
                 break;
@@ -248,7 +261,12 @@ public class WikiSearcher implements AutoCloseable {
 
                         @Override
                         public void failed(Exception ex) {
-                            logger.severe("Request to " + finalUrl + " failed: " + ex.getMessage());
+                            if (ex instanceof ConnectTimeoutException) {
+                                logger.severe("Request to " + finalUrl + " timed out: " + ex.getMessage());
+
+                            } else {
+                                logger.severe("Request to " + finalUrl + " failed: " + ex.getMessage());
+                            }
                             future.completeExceptionally(ex);
                         }
 
@@ -271,7 +289,7 @@ public class WikiSearcher implements AutoCloseable {
                     return result;
                 }
             } catch (InterruptedException | ExecutionException e) {
-                logger.severe("Error waiting for requests to complete: " + e.getMessage());
+                logger.info("Error waiting for requests to complete: " + e.getMessage());
             }
         }
 
@@ -284,6 +302,7 @@ public class WikiSearcher implements AutoCloseable {
      * it will search for the document in the index and return it. If not found in the local index, it will
      * return an empty JSON object.
      */
+
 
     public JSONObject getArticleByTitle(String title) throws IOException, QueryNodeException {
         JSONObject res = DocumentsStorage.getJson(title);
@@ -354,7 +373,11 @@ public class WikiSearcher implements AutoCloseable {
 
                         @Override
                         public void failed(Exception ex) {
-                            logger.severe("Request to " + finalUrl + " failed: " + ex.getMessage());
+                                logger.severe("Request to " + finalUrl + " failed: " + ex.getMessage());
+                                peers.remove(node);
+                                logger.warning("Removing dead peer: " + node.getName() + " from the list of peers");
+                                selectedPeers = selectPeers(peers, shards);
+                                logger.warning("Fallback to nodes: " + selectedPeers);
                             future.completeExceptionally(ex);
                         }
 
@@ -370,11 +393,12 @@ public class WikiSearcher implements AutoCloseable {
                 .toArray(CompletableFuture[]::new);
 
         // Wait for all requests to complete
-        try {
-            CompletableFuture.allOf(futuresArray).get();
-        } catch (InterruptedException | ExecutionException e) {
-            logger.severe("Error waiting for requests to complete: " + e.getMessage());
-            throw new RuntimeException("Error executing search requests", e);
+        for (CompletableFuture<?> future : futuresArray) {
+            try {
+                future.get();
+            } catch (InterruptedException | ExecutionException e) {
+                logger.info("Error waiting for request to complete: " + e.getMessage());
+            }
         }
         return res;
     }
