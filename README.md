@@ -1,6 +1,6 @@
 # What is this
-This is a course project for CS 230, distributed system, at the University of California, Irvine. The project aims to implement a distributed search engine for the monthly Wikipedia dump file using Lucene Java. Aside from using Lucene for basic searching, we built the distributed indexing/searching, ranking, and caching system in-house.
-You may find a demo instance of the project [here](https://wiki.javacafe.dev).
+This is a course project for CS 230, distributed system, at the University of California, Irvine. The project aims to implement a distributed search engine for the monthly Wikipedia dump file using Lucene Java. Aside from using Lucene for basic searching, we built the distributed indexing/searching, ranking, and caching system in-house.     
+You may find a demo instance of the project [here](https://wiki.javacafe.dev).          
 The wonderful React frontend of this project it at [wiki-go](https://github.com/chrismar303/wiki-go), and a simple backend used for load balancing is at [wiki-go-backend](https://github.com/chrismar303/wiki-go-backend).
 
 ## Why not Elastic search/Solr
